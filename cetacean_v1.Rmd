@@ -1,0 +1,174 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This document an initial analysis of cetacean strandings along the coast of San Diego county. We are interested in looking at if there is any temporal and spatial patterns of strandings, especially related to military bases. 
+
+```{r setup}
+rm(list=ls())
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(ggridges)
+library(sf)
+library(sp)
+
+source("SoCal_Strandings_fcns.R")
+S.lat <- 32.0
+N.lat <- 33.55
+W.lon <- -118
+E.lon <- -116.8
+
+TJriver.lat <- 32.55
+SilverStrandN.lat <- 32.69
+
+col_defs <- cols(Specimen = col_character(),
+                 RecoveryConditionID = col_character(),
+                 IsSDCounty = col_character(),
+                 SpeciesID = col_character(),
+                 COMMONNAME = col_character(),
+                 GENUS = col_character(),
+                 SPECIES = col_character(),
+                 OriginID = col_character(),
+                 OriginDescription = col_character(),
+                 SDCountyMapID = col_integer(),
+                 Location = col_character(),
+                 Year = col_integer(),
+                 Month = col_integer(),
+                 Day = col_integer(),
+                 Latitude = col_double(),
+                 Latitude_Precision = col_double(),
+                 Latitude_Precision_Unit = col_character(),
+                 Longitude = col_double(),
+                 Longitude_Precision = col_double(),
+                 Longitude_Precision_Unit = col_character())
+
+# remove those with NA entries in lat/lon and San Diego Bay in Location
+dat.1 <- read_csv(file = "data/SDCetaStrandings2000_2019.csv",
+                  col_types = col_defs) %>% 
+  filter(!is.na(Latitude)) %>%
+  filter(Location != "San Diego Bay") %>%
+  filter(Longitude > -118)       # remove San Clemente stranding
+
+```
+
+First look at the area map to orient ourselves. Some lat/lon seemed to be a bit off so went through one year at a time to see which ones needed to be corrected. Lines that are commented out were for that purpose. 
+
+```{r}
+# get the coast lines
+coast.line <- getCoastLine("data/coast/coast_Epac.txt",
+                           lon.limits = c(W.lon, E.lon),
+                           lat.limits = c(S.lat, N.lat))
+
+coast.line.df <- do.call(rbind, coast.line) 
+
+coast.line.df %>% 
+  st_as_sf(coords = c("Longitude", "Latitude"),
+           crs = "+proj=longlat +datum=WGS84") -> coast.line.sf
+
+# get county lines
+county.lines <- st_read("data/ca-county-boundaries/CA_Counties")
+
+county.lines %>% filter(NAME == "San Diego") %>%
+  st_transform(CRS("+proj=longlat +datum=WGS84"))-> SD.county.line
+
+land.color <- "cornsilk" #'#333333'
+
+#Y <- seq(2000, 2019)
+#Y <- 2019
+k <- 1
+font.size <- 3.5
+#for (k in 1:length(Y)){
+p2 <- ggplot() +
+  geom_polygon(data = coast.line.df,
+               aes(x = Longitude, y = Latitude, group = idx),
+               fill = land.color,
+               color = "gray48")  +
+  geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+  geom_text(data = data.frame(x = -117.2, y = 33.3),
+            aes(x = x, y = y, label = "San Diego"),
+            color = "black", 
+            size = font.size, fontface = "bold") + # angle = -45 
+  geom_point(data = dat.1,
+             aes(x = Longitude,
+                 y = Latitude,
+                 color = as.factor(Year)),
+             alpha = 0.7,
+             size = 3) +
+  # geom_point(data = filter(dat.1, Year == Y),
+  #            aes(x = Longitude, 
+  #                y = Latitude),
+  #            alpha = 0.7,
+  #            size = 3) +
+  coord_sf(xlim = c(W.lon, E.lon),
+           ylim = c(S.lat, N.lat)) +
+  ylab("Latitude") +
+  xlab("Longitude") +
+  ggtitle("Cetacean strandings along San Diego County (2000-2019)") +
+  #ggtitle(paste0("Cetacean strandings ", Y[k])) +
+  #theme(panel.grid = element_line(size = 1, color = "black"),
+  #      panel.grid.minor = element_line(size = 0.5, color = "black")) + 
+  #scale_y_continuous(minor_breaks = seq(S.lat, N.lat, 0.1))
+  theme(plot.title = element_text(hjust = 0.5),
+        #legend.position = "top", #c(0.1, 0.3),
+        legend.background = element_blank(),
+        legend.title = element_blank())
+
+#ggsave(p2, filename = paste0("figures/StrandingLocations_", Y[k], ".png"),
+#       device = "png", dpi = 600)  
+#}
+
+ggsave(p2, 
+       filename = "figures/StrandingLocations.png",
+       device = "png", 
+       dpi = 600)  
+
+
+```
+
+
+
+A quick plot of all strandings vs latitude:
+```{r}
+
+ggplot(data = dat.1) +
+  geom_rect(aes(xmin = TJriver.lat, xmax = SilverStrandN.lat,
+                ymin = 0, ymax = 10), alpha = 0.3, fill = "orange") +
+  geom_histogram(aes(x = Latitude), binwidth = 0.05) +
+  facet_wrap("Month") +
+  labs(title = "Cetacean strandings in San Diego county by month (2000-2019)")
+
+```
+
+Split the dataset in two: one for 2000-2009 and another for 2010-2019.
+
+```{r}
+dat.1.1 <- filter(dat.1, Year < 2010)
+
+ggplot(data = dat.1.1) +
+  geom_rect(aes(xmin = TJriver.lat, xmax = SilverStrandN.lat,
+                ymin = 0, ymax = 10), alpha = 0.3, fill = "orange") +
+  geom_histogram(aes(x = Latitude), binwidth = 0.05) +
+  facet_wrap("Month") +
+  labs(title = "Cetacean strandings in San Diego county by month (2000-2009)")
+
+
+```
+
+
+```{r}
+dat.1.2 <- filter(dat.1, Year > 2009)
+
+ggplot(data = dat.1.2) +
+  geom_rect(aes(xmin = TJriver.lat, xmax = SilverStrandN.lat,
+                ymin = 0, ymax = 10), alpha = 0.3, fill = "orange") +
+  geom_histogram(aes(x = Latitude), binwidth = 0.05) +
+  facet_wrap("Month") +
+  labs(title = "Cetacean strandings in San Diego county by month (2010-2019)")
+
+
+```
+
