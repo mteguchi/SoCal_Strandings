@@ -12,16 +12,20 @@ library(readr)
 library(ggplot2)
 library(ggridges)
 library(sf)
-library(sp)
+#library(sp)
 
 source("SoCal_Strandings_fcns.R")
-S.lat <- 32.0
+S.lat <- 32.4
 N.lat <- 33.55
 W.lon <- -118
 E.lon <- -116.8
 
+US.MX.border.lat <- 32.5344
 TJriver.lat <- 32.55
 SilverStrandN.lat <- 32.69
+DogBeach.Nend.lat <- 32.685
+Navy.base.S.lat <- 32.6369
+Navy.base.N.lat <- 32.6742
 
 col_defs <- cols(Specimen = col_character(),
                  RecoveryConditionID = col_character(),
@@ -51,60 +55,68 @@ dat.1 <- read_csv(file = "data/SDCetaStrandings2000_2019.csv",
   filter(Location != "San Diego Bay") %>%
   filter(Longitude > -118)       # remove San Clemente stranding
 
+# create a spatial object
+dat.1 %>% select(Longitude, Latitude, COMMONNAME, Year, Month) %>% 
+
+  st_as_sf(coords = c("Longitude", "Latitude"), 
+           crs = "+proj=longlat +datum=WGS84") -> dat.1.sp
+
 ```
 
 First look at the area map to orient ourselves. Some lat/lon seemed to be a bit off so went through one year at a time to see which ones needed to be corrected. Lines that are commented out were for that purpose. 
 
 ```{r}
 # get the coast lines
-coast.line <- getCoastLine("data/coast/coast_Epac.txt",
-                           lon.limits = c(W.lon, E.lon),
-                           lat.limits = c(S.lat, N.lat))
+coast.line <- st_read("C:\\Users\\tomo.eguchi\\Documents\\Oceans and Maps\\San Diego\\COASTLINE",
+                      layer = "coast") %>% 
+  st_transform(crs = "+proj=longlat +datum=WGS84") 
 
-coast.line.df <- do.call(rbind, coast.line) 
+harbor_bay <- st_read("C:\\Users\\tomo.eguchi\\Documents\\Oceans and Maps\\San Diego\\Harbor_Bay", layer = "Harbor_Bay") %>% 
+  st_transform(crs = "+proj=longlat +datum=WGS84") 
 
-coast.line.df %>% 
-  st_as_sf(coords = c("Longitude", "Latitude"),
-           crs = "+proj=longlat +datum=WGS84") -> coast.line.sf
+Pacific <-  st_read("C:\\Users\\tomo.eguchi\\Documents\\Oceans and Maps\\San Diego\\Pacific_Ocean", layer = "PACIFIC_OCEAN") %>% 
+  st_transform(crs = "+proj=longlat +datum=WGS84") 
 
 # get county lines
 county.lines <- st_read("data/ca-county-boundaries/CA_Counties")
 
 county.lines %>% filter(NAME == "San Diego") %>%
-  st_transform(CRS("+proj=longlat +datum=WGS84"))-> SD.county.line
+  st_transform(crs = "+proj=longlat +datum=WGS84") -> SD.county.line
 
 land.color <- "cornsilk" #'#333333'
+water.color <- "lightcyan1"
 
 #Y <- seq(2000, 2019)
 #Y <- 2019
 k <- 1
 font.size <- 3.5
 #for (k in 1:length(Y)){
-p2 <- ggplot() +
-  geom_polygon(data = coast.line.df,
-               aes(x = Longitude, y = Latitude, group = idx),
-               fill = land.color,
-               color = "gray48")  +
+ggplot() +
+  geom_sf(data = coast.line) +
+  geom_sf(data = harbor_bay, fill = water.color) +
+  geom_sf(data = Pacific, fill = water.color) +
   geom_sf(data = SD.county.line,
           color = "purple",
           fill = "transparent") +
+  geom_sf(data = dat.1.sp, 
+          aes(color = as.factor(Year), alpha = 0.6)) +
+  coord_sf(xlim = c(W.lon, E.lon),
+           ylim = c(S.lat, N.lat)) +
   geom_text(data = data.frame(x = -117.2, y = 33.3),
             aes(x = x, y = y, label = "San Diego"),
             color = "black", 
             size = font.size, fontface = "bold") + # angle = -45 
-  geom_point(data = dat.1,
-             aes(x = Longitude,
-                 y = Latitude,
-                 color = as.factor(Year)),
-             alpha = 0.7,
-             size = 3) +
+  # geom_point(data = dat.1,
+  #            aes(x = Longitude,
+  #                y = Latitude,
+  #                color = as.factor(Year)),
+  #            alpha = 0.7,
+  #            size = 3) +
   # geom_point(data = filter(dat.1, Year == Y),
   #            aes(x = Longitude, 
   #                y = Latitude),
   #            alpha = 0.7,
   #            size = 3) +
-  coord_sf(xlim = c(W.lon, E.lon),
-           ylim = c(S.lat, N.lat)) +
   ylab("Latitude") +
   xlab("Longitude") +
   ggtitle("Cetacean strandings along San Diego County (2000-2019)") +
@@ -115,18 +127,87 @@ p2 <- ggplot() +
   theme(plot.title = element_text(hjust = 0.5),
         #legend.position = "top", #c(0.1, 0.3),
         legend.background = element_blank(),
-        legend.title = element_blank())
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = land.color))
 
-#ggsave(p2, filename = paste0("figures/StrandingLocations_", Y[k], ".png"),
+#ggsave(p.1, filename = paste0("figures/StrandingLocations_", Y[k], ".png"),
 #       device = "png", dpi = 600)  
 #}
 
-ggsave(p2, 
-       filename = "figures/StrandingLocations.png",
-       device = "png", 
-       dpi = 600)  
+# ggsave(p.1, 
+#        filename = "figures/StrandingLocations.png",
+#        device = "png", 
+#        dpi = 600)  
 
 
+```
+
+
+Just Silver Strand:
+
+```{r}
+W.lon.SS <- -117.35
+E.lon.SS <- -117.0
+N.lat.SS <- 32.73
+S.lat.SS <- US.MX.border.lat
+
+dat.1 %>% filter(Latitude < SilverStrandN.lat) %>%
+  filter(Latitude > US.MX.border.lat) %>% 
+  st_as_sf(coords = c("Longitude", "Latitude"), 
+           crs = "+proj=longlat +datum=WGS84") -> dat.1.SS.sp
+
+# San Diego Bay is defined to include the northern tip of Silver Strand
+# along the beach of North Island Air Station. So, those need to be removed. 
+# To find points that are in the bay, do the following:
+
+in.bay <- st_join(dat.1.SS.sp, harbor_bay) %>% 
+  filter(!is.na(SHAPE_AREA)) 
+
+in.bay %>%  
+  st_coordinates() %>%
+  data.frame() %>%
+  filter(Y < 32.67) %>%
+  row.names() -> in.bay.idx
+
+in.bay.2 <- in.bay[as.numeric(in.bay.idx), ]
+
+
+p.2 <- ggplot() +
+  geom_sf(data = coast.line)+
+  geom_sf(data = harbor_bay, fill = water.color) +
+  geom_sf(data = Pacific, fill = water.color) +
+  geom_sf(data = dat.1.SS.sp, 
+          aes(color = as.factor(Year), alpha = 0.6)) +
+  geom_sf(data = in.bay.2, color = "black", size = 1.2) +
+  coord_sf(xlim = c(W.lon.SS, E.lon.SS),
+           ylim = c(S.lat.SS, N.lat.SS)) +
+
+  # geom_point(data = dat.1.SS,
+  #            aes(x = Longitude,
+  #                y = Latitude,
+  #                color = as.factor(Year)),
+  #            alpha = 0.7,
+  #            size = 3) +
+  # geom_point(data = filter(dat.1, Year == Y),
+  #            aes(x = Longitude, 
+  #                y = Latitude),
+  #            alpha = 0.7,
+  #            size = 3) +
+  ylab("Latitude") +
+  xlab("Longitude") +
+  ggtitle("Cetacean strandings along Silver Strand (2000-2019)") +
+  #ggtitle(paste0("Cetacean strandings ", Y[k])) +
+  theme(panel.grid = element_line(size = 1, color = "black"),
+        panel.grid.minor = element_line(size = 0.5, color = "black")) + 
+  #scale_y_continuous(minor_breaks = seq(S.lat, N.lat, 0.1))
+  theme(plot.title = element_text(hjust = 0.5),
+        #legend.position = "top", #c(0.1, 0.3),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = land.color))
+
+ggsave(p.2, filename = "figures/SDB_strandings.png",
+       device = "png", dpi = 600)
 ```
 
 
@@ -135,13 +216,16 @@ A quick plot of all strandings vs latitude:
 ```{r}
 
 ggplot(data = dat.1) +
-  geom_rect(aes(xmin = TJriver.lat, xmax = SilverStrandN.lat,
+  geom_rect(aes(xmin = US.MX.border.lat, xmax = SilverStrandN.lat,
                 ymin = 0, ymax = 10), alpha = 0.3, fill = "orange") +
-  geom_histogram(aes(x = Latitude), binwidth = 0.05) +
+  geom_histogram(aes(x = Latitude), binwidth = 0.03) +
   facet_wrap("Month") +
   labs(title = "Cetacean strandings in San Diego county by month (2000-2019)")
 
 ```
+
+Simple statistics of # strandings per latitude degree
+
 
 Split the dataset in two: one for 2000-2009 and another for 2010-2019.
 
@@ -151,7 +235,7 @@ dat.1.1 <- filter(dat.1, Year < 2010)
 ggplot(data = dat.1.1) +
   geom_rect(aes(xmin = TJriver.lat, xmax = SilverStrandN.lat,
                 ymin = 0, ymax = 10), alpha = 0.3, fill = "orange") +
-  geom_histogram(aes(x = Latitude), binwidth = 0.05) +
+  geom_histogram(aes(x = Latitude), binwidth = 0.03) +
   facet_wrap("Month") +
   labs(title = "Cetacean strandings in San Diego county by month (2000-2009)")
 
@@ -165,9 +249,28 @@ dat.1.2 <- filter(dat.1, Year > 2009)
 ggplot(data = dat.1.2) +
   geom_rect(aes(xmin = TJriver.lat, xmax = SilverStrandN.lat,
                 ymin = 0, ymax = 10), alpha = 0.3, fill = "orange") +
-  geom_histogram(aes(x = Latitude), binwidth = 0.05) +
+  geom_histogram(aes(x = Latitude), binwidth = 0.03) +
   facet_wrap("Month") +
   labs(title = "Cetacean strandings in San Diego county by month (2010-2019)")
+
+
+```
+
+As Nick was showing... Look at just Silver Strand:
+
+```{r}
+
+ggplot(data = dat.1.SS) +
+  geom_rect(aes(xmin = US.MX.border.lat, xmax = TJriver.lat, 
+                ymin = 0, ymax = 10), alpha = 0.3, fill = "green") +
+  geom_rect(aes(xmin = Navy.base.S.lat, xmax = Navy.base.N.lat,
+                ymin = 0, ymax = 10), alpha = 0.3, fill = "orange") +
+  geom_rect(aes(xmin = DogBeach.Nend.lat, xmax = SilverStrandN.lat,
+                ymin = 0, ymax = 10), alpha = 0.3, fill = "purple") +
+  geom_histogram(aes(x = Latitude), binwidth = 0.01) +
+  facet_wrap("Month") +
+  labs(title = "Cetacean strandings along Silver Strand by month (2000-2009)")
+
 
 
 ```
