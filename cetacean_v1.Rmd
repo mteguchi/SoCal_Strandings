@@ -143,6 +143,30 @@ ggplot() +
 ```
 
 
+Can we count strandings per unit length of coast lines?
+
+```{r}
+# first, intersection between coast line and county
+SD.coast <- st_intersection(coast.line, SD.county.line)
+
+# need to remove Mission Bay and San Diego Bay
+# first MB - convert polygon to line
+harbor_bay %>% filter(NAME == "MISSION BAY") -> MB.poly
+MB.line <- st_cast(MB.poly, "LINESTRING")
+
+# SDB
+harbor_bay %>% filter(NAME == "SAN DIEGO BAY") -> SDB.poly
+SDB.line <- st_cast(SDB.poly, "LINESTRING")
+
+# SDB includes a bit of Silver Strand in the North Island Air Station...
+tmp <- st_intersection(SD.coast, SDB.line)
+tmp2 <- st_difference(SD.coast, SDB.line)
+
+SD.coast.no.MB <- st_difference(SD.coast, MB.poly)
+
+```
+
+
 Just Silver Strand:
 
 ```{r}
@@ -156,13 +180,13 @@ dat.1 %>% filter(Latitude < SilverStrandN.lat) %>%
   st_as_sf(coords = c("Longitude", "Latitude"), 
            crs = "+proj=longlat +datum=WGS84") -> dat.1.SS.sp
 
-# San Diego Bay is defined to include the northern tip of Silver Strand
-# along the beach of North Island Air Station. So, those need to be removed. 
 # To find points that are in the bay, do the following:
 
 in.bay <- st_join(dat.1.SS.sp, harbor_bay) %>% 
   filter(!is.na(SHAPE_AREA)) 
 
+# San Diego Bay is defined to include the northern tip of Silver Strand
+# along the beach of North Island Air Station. So, those need to be removed. 
 in.bay %>%  
   st_coordinates() %>%
   data.frame() %>%
@@ -206,8 +230,8 @@ p.2 <- ggplot() +
         legend.title = element_blank(),
         panel.background = element_rect(fill = land.color))
 
-ggsave(p.2, filename = "figures/SDB_strandings.png",
-       device = "png", dpi = 600)
+# ggsave(p.2, filename = "figures/SDB_strandings.png",
+#        device = "png", dpi = 600)
 ```
 
 
