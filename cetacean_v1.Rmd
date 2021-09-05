@@ -71,7 +71,14 @@ coast.line <- st_read("C:\\Users\\tomo.eguchi\\Documents\\Oceans and Maps\\San D
                       layer = "coast") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
 
-harbor_bay <- st_read("C:\\Users\\tomo.eguchi\\Documents\\Oceans and Maps\\San Diego\\Harbor_Bay", layer = "Harbor_Bay") %>% 
+# this is for plotting:
+harbor_bay_1 <- st_read("C:\\Users\\tomo.eguchi\\Documents\\Oceans and Maps\\San Diego\\Harbor_Bay", layer = "Harbor_Bay") %>% 
+   st_transform(crs = "+proj=longlat +datum=WGS84") 
+
+# I edited SDB in QGIS on my laptop (linux) so that Silver Strand is not included.
+# this is for computing coast length
+harbor_bay <- st_read("C:\\Users\\tomo.eguchi\\Documents\\Oceans and Maps\\San Diego\\SDB_v2",
+               layer = "SDB_v2") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
 
 Pacific <-  st_read("C:\\Users\\tomo.eguchi\\Documents\\Oceans and Maps\\San Diego\\Pacific_Ocean", layer = "PACIFIC_OCEAN") %>% 
@@ -83,6 +90,12 @@ county.lines <- st_read("data/ca-county-boundaries/CA_Counties")
 county.lines %>% filter(NAME == "San Diego") %>%
   st_transform(crs = "+proj=longlat +datum=WGS84") -> SD.county.line
 
+# Silver Strand - created from the entire coast line above in QGIS
+SS <- st_read("C:\\Users\\tomo.eguchi\\Documents\\Oceans and Maps\\San Diego\\SilverStrand",
+               layer = "SilverStrand") %>% 
+  st_transform(crs = "+proj=longlat +datum=WGS84") %>%
+  st_cast("LINESTRING")
+
 land.color <- "cornsilk" #'#333333'
 water.color <- "lightcyan1"
 
@@ -91,10 +104,11 @@ water.color <- "lightcyan1"
 k <- 1
 font.size <- 3.5
 #for (k in 1:length(Y)){
-ggplot() +
+p.1 <- ggplot() +
+  geom_sf(data = Pacific, fill = water.color, color = water.color) +
+  geom_sf(data = harbor_bay_1, fill = water.color) +
   geom_sf(data = coast.line) +
-  geom_sf(data = harbor_bay, fill = water.color) +
-  geom_sf(data = Pacific, fill = water.color) +
+  
   geom_sf(data = SD.county.line,
           color = "purple",
           fill = "transparent") +
@@ -142,31 +156,6 @@ ggplot() +
 
 ```
 
-
-Can we count strandings per unit length of coast lines?
-
-```{r}
-# first, intersection between coast line and county
-SD.coast <- st_intersection(coast.line, SD.county.line)
-
-# need to remove Mission Bay and San Diego Bay
-# first MB - convert polygon to line
-harbor_bay %>% filter(NAME == "MISSION BAY") -> MB.poly
-MB.line <- st_cast(MB.poly, "LINESTRING")
-
-# SDB
-harbor_bay %>% filter(NAME == "SAN DIEGO BAY") -> SDB.poly
-SDB.line <- st_cast(SDB.poly, "LINESTRING")
-
-# SDB includes a bit of Silver Strand in the North Island Air Station...
-tmp <- st_intersection(SD.coast, SDB.line)
-tmp2 <- st_difference(SD.coast, SDB.line)
-
-SD.coast.no.MB <- st_difference(SD.coast, MB.poly)
-
-```
-
-
 Just Silver Strand:
 
 ```{r}
@@ -198,7 +187,7 @@ in.bay.2 <- in.bay[as.numeric(in.bay.idx), ]
 
 p.2 <- ggplot() +
   geom_sf(data = coast.line)+
-  geom_sf(data = harbor_bay, fill = water.color) +
+  geom_sf(data = harbor_bay_1, fill = water.color) +
   geom_sf(data = Pacific, fill = water.color) +
   geom_sf(data = dat.1.SS.sp, 
           aes(color = as.factor(Year), alpha = 0.6)) +
@@ -248,7 +237,30 @@ ggplot(data = dat.1) +
 
 ```
 
-Simple statistics of # strandings per latitude degree
+Simple statistics of # strandings per unit coast length
+START HERE NEXT 2021-09-05!
+```{r}
+# first, intersection between coast line and county
+SD.coast <- st_intersection(coast.line, SD.county.line)
+
+# need to remove Mission Bay and San Diego Bay
+# MB - convert polygon to line
+harbor_bay %>% filter(NAME == "MISSION BAY") -> MB.poly
+MB.line <- st_cast(MB.poly, "LINESTRING")
+MB.length <- sum(st_length(MB.line))
+
+# SDB
+harbor_bay %>% filter(NAME == "SAN DIEGO BAY") -> SDB.poly
+SDB.line <- st_cast(SDB.poly, "LINESTRING")
+SDB.length <- sum(st_length(SDB.line))
+
+SD.coast.no.MB.SDB.length <- as.numeric(sum(st_length(SD.coast)) - MB.length - SDB.length)
+
+
+
+# Silver Strand
+SS.length <- as.numeric(st_length(SS))
+```
 
 
 Split the dataset in two: one for 2000-2009 and another for 2010-2019.
