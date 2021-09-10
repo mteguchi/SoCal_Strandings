@@ -72,23 +72,23 @@ Bring in shapefiles:
 ```{r}
 # get the coast lines
 # Does this work with Windows?
-home.dir <- "~/Documents/"
-coast.line <- st_read(paste0(home.dir, "Oceans and Maps/San Diego/COASTLINE"),
+home.dir <- Sys.getenv("HOMEPATH")
+coast.line <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/COASTLINE"),
                       layer = "coast") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
 
 # this is for plotting:
-harbor_bay_1 <- st_read(paste0(home.dir, "Oceans and Maps/San Diego/Harbor_Bay"), 
+harbor_bay_1 <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/Harbor_Bay"), 
                         layer = "Harbor_Bay") %>% 
    st_transform(crs = "+proj=longlat +datum=WGS84") 
 
 # I edited SDB in QGIS on my laptop (linux) so that Silver Strand is not included.
 # this is for computing coast length
-harbor_bay <- st_read(paste0(home.dir, "Oceans and Maps/San Diego/SDB_v2"),
+harbor_bay <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/SDB_v2"),
                layer = "SDB_v2") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
 
-Pacific <-  st_read(paste0(home.dir, "Oceans and Maps/San Diego/Pacific_Ocean"), 
+Pacific <-  st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/Pacific_Ocean"), 
                     layer = "PACIFIC_OCEAN") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
 
@@ -99,12 +99,12 @@ county.lines %>% filter(NAME == "San Diego") %>%
   st_transform(crs = "+proj=longlat +datum=WGS84") -> SD.county.line
 
 # Silver Strand - created from the entire coast line above in QGIS
-SS <- st_read(paste0(home.dir, "Oceans and Maps/San Diego/SilverStrand"),
+SS <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/SilverStrand"),
                layer = "SilverStrand") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") %>%
   st_cast("LINESTRING")
 
-Navy <- st_read(paste0(home.dir, "Oceans and Maps/Navy_installations_poly"), 
+Navy <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/Navy_installations_poly"), 
                 layer = "Navy_installations_poly") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") %>%
   st_make_valid()  # some duplicated vertices removed. 
@@ -149,6 +149,8 @@ ggplot() +
         #legend.title = element_text("Map ID"),
         panel.background = element_rect(fill = land.color))
 
+#ggsave(filename = "figures/SDcoast.png", device = "png", dpi = 600)
+
 ```
 
 
@@ -190,6 +192,48 @@ San Diego Bay should be area 2. There are still some inconsistent data... Kerri 
 
 I think these are all fixed. 2021-09-09
 
+Exclude those that are found outside of SD county
+
+```{r}
+in.SD <- st_join(dat.1.sp, SD.county.line) %>% 
+   filter(!is.na(AWATER)) 
+
+ggplot() +
+  geom_sf(data = Pacific, fill = water.color, color = water.color) +
+  geom_sf(data = harbor_bay_1, fill = water.color) +
+  geom_sf(data = coast.line) +
+  
+  geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+  geom_sf(data = Navy, fill = Navy.color) +
+
+  geom_sf(data = in.SD, 
+          aes(color = as.factor(Year))) +
+  coord_sf(xlim = c(W.lon, E.lon),
+           ylim = c(S.lat, N.lat)) +
+  geom_text(data = data.frame(x = -117.1, y = 33.3),
+            aes(x = x, y = y, label = "San Diego"),
+            color = "black", 
+            size = font.size, fontface = "bold") + # angle = -45 
+  ylab("Latitude") +
+  xlab("Longitude") +
+  ggtitle("Cetacean strandings along San Diego County (2000-2019)") +
+  #scale_fill_continuous(name = "Map ID") +
+  theme(plot.title = element_text(hjust = 0.5),
+        #legend.position = "top", #c(0.1, 0.3),
+        legend.background = element_blank(),
+        legend.title = element_text("Map ID"),
+        panel.background = element_rect(fill = land.color))
+
+# ggsave(filename = "figures/StrandingLocations.png",
+#        device = "png",
+#        dpi = 600)
+
+
+```
+
+
 Plot strandings as a function of year. 
 
 ```{r}
@@ -197,7 +241,7 @@ Plot strandings as a function of year.
 #Y <- 2019
 k <- 1
 #for (k in 1:length(Y)){
-p.1 <- ggplot() +
+ggplot() +
   geom_sf(data = Pacific, fill = water.color, color = water.color) +
   geom_sf(data = harbor_bay_1, fill = water.color) +
   geom_sf(data = coast.line) +
@@ -243,10 +287,9 @@ p.1 <- ggplot() +
 #       device = "png", dpi = 600)  
 #}
 
-# ggsave(p.1, 
-#        filename = "figures/StrandingLocations.png",
-#        device = "png", 
-#        dpi = 600)  
+# ggsave(filename = "figures/StrandingAllLocations.png",
+#        device = "png",
+#        dpi = 600)
 
 
 ```
@@ -258,18 +301,19 @@ Just Silver Strand:
 ```{r}
 W.lon.SS <- -117.35
 E.lon.SS <- -117.05
+SDB.mouth.lon <- -117.23
 N.lat.SS <- 32.73
 S.lat.SS <- US.MX.border.lat
 
 dat.1 %>% filter(Latitude < SilverStrandN.lat & 
-                   Latitude > US.MX.border.lat) %>% 
+                   Latitude > US.MX.border.lat &
+                   Longitude > SDB.mouth.lon) %>% 
   st_as_sf(coords = c("Longitude", "Latitude"), 
            crs = "+proj=longlat +datum=WGS84") -> dat.1.SS.sp
 
 # To find points that are in the bay, do the following:
-
-in.bay <- st_join(dat.1.SS.sp, harbor_bay) %>% 
-  filter(!is.na(SHAPE_AREA)) 
+# in.bay <- st_join(dat.1.SS.sp, harbor_bay) %>% 
+#   filter(!is.na(SHAPE_AREA)) 
 
 # San Diego Bay is defined to include the northern tip of Silver Strand
 # along the beach of North Island Air Station. So, those need to be removed. 
@@ -323,10 +367,9 @@ p.2 <- ggplot() +
         legend.title = element_blank(),
         panel.background = element_rect(fill = land.color))
 
-ggsave(p.2, filename = "figures/SS_strandings.png",
-       device = "png", dpi = 600)
+# ggsave(p.2, filename = "figures/SS_strandings.png",
+#        device = "png", dpi = 600)
 ```
-
 
 
 A quick plot of all strandings vs latitude:
@@ -502,8 +545,11 @@ Look at the number of strandings in and out of military installations
 ```{r}
 # To find points that are in the military installations:
 
-in.base <- st_join(dat.1.sp, Navy) %>%
+on.base <- st_join(dat.1.sp, Navy) %>%
   filter(!is.na(Shape_Area)) 
+
+off.base <- st_join(dat.1.sp, Navy) %>%
+  filter(is.na(Shape_Area))
 
 ggplot() +
   geom_sf(data = coast.line)+
@@ -515,7 +561,7 @@ ggplot() +
 
   geom_sf(data = Navy, fill = Navy.color) +
 
-  geom_sf(data = in.base, 
+  geom_sf(data = on.base, 
           aes(color = GENUS), alpha = 0.6) +
   coord_sf(xlim = c(W.lon, E.lon),
            ylim = c(S.lat, N.lat)) +
@@ -534,7 +580,47 @@ ggplot() +
         panel.background = element_rect(fill = land.color))
 ```
 
-There are some inland strandings... need to look into these also.
+Look at them by installations
+
+```{r}
+on.base %>% as.data.frame() %>% 
+  group_by(instname) %>%
+  select(Specimen, GENUS, SPECIES, SDCountyMapID, Year, Month, instname, geometry) %>%
+  unite(col = "Sp", GENUS:SPECIES) -> on.base.by.inst
+
+on.base.by.inst %>% group_by(instname, Sp, Year) %>%
+  summarise(n = n()) -> on.base.by.inst.summary
+
+ggplot(on.base.by.inst.summary) +
+  geom_bar(aes(x = Year, y = n, fill = Sp), stat = "identity") +
+  #geom_point(aes(x = Year, y = n, color = Sp)) +
+  facet_wrap("instname") +
+  scale_fill_viridis_d() +
+  theme(axis.title.x = element_blank())
+```
+```{r}
+on.base.by.inst.summary %>% data.frame()
+```
+
+Just Camp Pendleton:
+
+```{r}
+on.base.by.inst %>% filter(instname == "MCB Camp Pendleton") -> on.base.by.inst.CP
+
+on.base.by.inst.CP %>% group_by(instname, Sp, Year) %>%
+  summarise(n = n()) -> on.base.by.inst.CP.summary
+
+ggplot(on.base.by.inst.CP.summary) +
+  geom_bar(aes(x = Year, y = n, fill = Sp), stat = "identity") +
+  #geom_point(aes(x = Year, y = n, color = Sp)) +
+  #facet_grid(rows = "instname") +
+  scale_fill_viridis_d() +
+  theme(axis.title.x = element_blank())
+
+```
+
+
+Every installation along the coast gets some stranding. 
 
 Look at just silver strand
 
@@ -549,7 +635,7 @@ ggplot() +
 
     geom_sf(data = Navy, fill = Navy.color) +
 
-  geom_sf(data = in.base, 
+  geom_sf(data = on.base, 
           aes(color = Year), alpha = 0.6) +
   scale_color_viridis_c() +
   coord_sf(xlim = c(W.lon.SS, E.lon.SS),
@@ -557,7 +643,7 @@ ggplot() +
 
   ylab("Latitude") +
   xlab("Longitude") +
-  ggtitle("Delphinus capensis strandings along Silver Strand (2000-2019)") +
+  ggtitle("Cetacean strandings on military installations along Silver Strand (2000-2019)") +
   theme(plot.title = element_text(hjust = 0.5),
         #legend.position = "top", #c(0.1, 0.3),
         legend.background = element_blank(),
@@ -566,7 +652,23 @@ ggplot() +
 ```
 
 
-Looks like the extraction seems to be working. 
+```{r}
+on.base.by.inst %>% filter(instname != "MCB Camp Pendleton") -> on.base.by.inst.SS
+
+on.base.by.inst.SS %>% group_by(instname, Sp, Year) %>%
+  summarise(n = n()) -> on.base.by.inst.SS.summary
+
+ggplot(on.base.by.inst.SS.summary) +
+  geom_bar(aes(x = Year, y = n, fill = Sp), stat = "identity") +
+  #geom_point(aes(x = Year, y = n, color = Sp)) +
+  facet_grid(rows = "instname") +
+  scale_fill_viridis_d() +
+  theme(axis.title.x = element_blank())
+
+```
+
+Makes sense to look at just Delphins, especially capensis. 
+
 
 ```{r}
 dat.1 %>% group_by(GENUS) %>%
@@ -580,7 +682,8 @@ ggplot(data = dat.1.bySp) +
         axis.title.x = element_blank())
 ```
 
-Needless to say Delphinus and Tursiops are key species to look at. Delphinus has two species. 
+Needless to say Delphinus and Tursiops are key species to look at. Delphinus has two species.
+
 ```{r}
 dat.1 %>% filter(GENUS == "Delphinus") -> dat.Delphinus
 dat.Delphinus %>%  st_as_sf(coords = c("Longitude", "Latitude"), 
@@ -715,9 +818,25 @@ ggplot() +
         panel.background = element_rect(fill = land.color))
 ```
 
-Count the number of strandings in and outside of military installations:
+Count the number of capensis strandings in and outside of military installations:
 
 ```{r}
+on.base.by.inst %>% filter(instname != "MCB Camp Pendleton") %>% 
+  filter(Sp == "Delphinus_capensis") -> on.base.SS.capensis
+
+dat.capensis.SS.sp %>% st_join(Navy) %>%
+  filter(is.na(Shape_Area)) %>% 
+  as.data.frame() %>% 
+  select(Specimen, GENUS, SPECIES, SDCountyMapID, Year, Month, instname, geometry) %>%
+  unite(col = "Sp", GENUS:SPECIES) %>%
+  filter(Sp == "Delphinus_capensis") ->  off.base.SS.capensis
+
+# find the coast line length for each base:
+Navy %>% filter(instname == "NAS North Island") -> NI.poly
+SDB.NI.poly <- st_intersection(SDB.poly, NI.poly)
+SDB.NI.line <- st_cast(SDB.NI.line, "MULTILINESTRING")
+
+NI.line <- st_cast(NI.poly, "MULTILINESTRING")
 
 ```
 
