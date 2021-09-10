@@ -106,9 +106,43 @@ Navy <- st_read("c:\\users\\tomo.eguchi\\Documents\\Oceans and Maps\\Navy_instal
 
 land.color <- "cornsilk" #'#333333'
 water.color <- "lightcyan1"
+Navy.color <- "salmon"
 font.size <- 3.5
 
 ```
+
+
+Put maps together:
+
+```{r}
+ggplot() +
+  geom_sf(data = Pacific, fill = water.color, color = water.color) +
+  geom_sf(data = harbor_bay_1, fill = water.color) +
+  geom_sf(data = coast.line) +
+  
+  geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+  geom_sf(data = Navy, fill = Navy.color) +
+  geom_text(data = data.frame(x = -117.1, y = 33.3),
+            aes(x = x, y = y, label = "San Diego"),
+            color = "black", 
+            size = font.size, fontface = "bold") + # angle = -45 
+
+  #geom_sf(data = dat.1.sp, 
+  #        aes(color = SDCountyMapID)) +
+  coord_sf(xlim = c(W.lon, E.lon),
+           ylim = c(S.lat, N.lat)) +
+  ylab("Latitude") +
+  xlab("Longitude") +
+  theme(#plot.title = element_text(hjust = 0.5),
+        #legend.position = "top", #c(0.1, 0.3),
+        #legend.background = element_blank(),
+        #legend.title = element_text("Map ID"),
+        panel.background = element_rect(fill = land.color))
+
+```
+
 
 Figuring out Map IDs:
 
@@ -121,11 +155,13 @@ ggplot() +
   geom_sf(data = SD.county.line,
           color = "purple",
           fill = "transparent") +
+  geom_sf(data = Navy, fill = Navy.color) +
+
   geom_sf(data = dat.1.sp, 
           aes(color = SDCountyMapID)) +
   coord_sf(xlim = c(W.lon, E.lon),
            ylim = c(S.lat, N.lat)) +
-  geom_text(data = data.frame(x = -117.2, y = 33.3),
+  geom_text(data = data.frame(x = -117.1, y = 33.3),
             aes(x = x, y = y, label = "San Diego"),
             color = "black", 
             size = font.size, fontface = "bold") + # angle = -45 
@@ -142,7 +178,9 @@ ggplot() +
 
 ```
 
-San Diego Bay should be area 2. There are still some inconsistent data... Kerri is looking into it. 2021-09-07
+San Diego Bay should be area 2. There are still some inconsistent data... Kerri is looking into it. 2021-09-07 
+
+I think these are all fixed. 2021-09-09
 
 Plot strandings as a function of year. 
 
@@ -159,11 +197,13 @@ p.1 <- ggplot() +
   geom_sf(data = SD.county.line,
           color = "purple",
           fill = "transparent") +
+    geom_sf(data = Navy, fill = Navy.color) +
+
   geom_sf(data = dat.1.sp, 
           aes(color = as.factor(Year)), alpha = 0.6) +
   coord_sf(xlim = c(W.lon, E.lon),
            ylim = c(S.lat, N.lat)) +
-  geom_text(data = data.frame(x = -117.2, y = 33.3),
+  geom_text(data = data.frame(x = -117.1, y = 33.3),
             aes(x = x, y = y, label = "San Diego"),
             color = "black", 
             size = font.size, fontface = "bold") + # angle = -45 
@@ -209,12 +249,12 @@ Just Silver Strand:
 
 ```{r}
 W.lon.SS <- -117.35
-E.lon.SS <- -117.0
+E.lon.SS <- -117.05
 N.lat.SS <- 32.73
 S.lat.SS <- US.MX.border.lat
 
-dat.1 %>% filter(Latitude < SilverStrandN.lat) %>%
-  filter(Latitude > US.MX.border.lat) %>% 
+dat.1 %>% filter(Latitude < SilverStrandN.lat & 
+                   Latitude > US.MX.border.lat) %>% 
   st_as_sf(coords = c("Longitude", "Latitude"), 
            crs = "+proj=longlat +datum=WGS84") -> dat.1.SS.sp
 
@@ -225,22 +265,29 @@ in.bay <- st_join(dat.1.SS.sp, harbor_bay) %>%
 
 # San Diego Bay is defined to include the northern tip of Silver Strand
 # along the beach of North Island Air Station. So, those need to be removed. 
-in.bay %>%  
-  st_coordinates() %>%
-  data.frame() %>%
-  filter(Y < 32.67) %>%
-  row.names() -> in.bay.idx
-
-in.bay.2 <- in.bay[as.numeric(in.bay.idx), ]
+# These have been fixed.
+# in.bay %>%  
+#   st_coordinates() %>%
+#   data.frame() %>%
+#   filter(Y < 32.67) %>%
+#   row.names() -> in.bay.idx
+# 
+# in.bay.2 <- in.bay[as.numeric(in.bay.idx), ]
 
 
 p.2 <- ggplot() +
   geom_sf(data = coast.line)+
   geom_sf(data = harbor_bay_1, fill = water.color) +
   geom_sf(data = Pacific, fill = water.color) +
+  geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+  
+  geom_sf(data = Navy, fill = Navy.color) +
+  
   geom_sf(data = dat.1.SS.sp, 
           aes(color = as.factor(Year)), alpha = 0.6) +
-  geom_sf(data = in.bay.2, color = "black", size = 1.2) +
+  #geom_sf(data = in.bay.2, color = "black", size = 1.2) +
   coord_sf(xlim = c(W.lon.SS, -117.05),
            ylim = c(S.lat.SS, N.lat.SS)) +
 
@@ -259,8 +306,8 @@ p.2 <- ggplot() +
   xlab("Longitude") +
   ggtitle("Cetacean strandings along Silver Strand (2000-2019)") +
   #ggtitle(paste0("Cetacean strandings ", Y[k])) +
-  theme(panel.grid = element_line(size = 1, color = "black"),
-        panel.grid.minor = element_line(size = 0.5, color = "black")) + 
+  #theme(panel.grid = element_line(size = 1, color = "black"),
+  #      panel.grid.minor = element_line(size = 0.5, color = "black")) + 
   #scale_y_continuous(minor_breaks = seq(S.lat, N.lat, 0.1))
   theme(plot.title = element_text(hjust = 0.5),
         #legend.position = "top", #c(0.1, 0.3),
@@ -268,8 +315,8 @@ p.2 <- ggplot() +
         legend.title = element_blank(),
         panel.background = element_rect(fill = land.color))
 
-# ggsave(p.2, filename = "figures/SDB_strandings.png",
-#        device = "png", dpi = 600)
+ggsave(p.2, filename = "figures/SS_strandings.png",
+       device = "png", dpi = 600)
 ```
 
 
@@ -416,6 +463,12 @@ ggplot() +
   geom_sf(data = coast.line)+
   geom_sf(data = harbor_bay_1, fill = water.color) +
   geom_sf(data = Pacific, fill = water.color) +
+    geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+
+  geom_sf(data = Navy, fill = Navy.color) +
+
   geom_sf(data = dat.1.sp, 
           aes(color = GENUS), alpha = 0.6) +
   coord_sf(xlim = c(W.lon, E.lon),
@@ -435,6 +488,13 @@ ggplot() +
         panel.background = element_rect(fill = land.color))
 
 ```
+
+Look at the number of strandings in and out of military installations
+
+```{r}
+
+```
+
 
 ```{r}
 dat.1 %>% group_by(GENUS) %>%
@@ -488,6 +548,12 @@ ggplot() +
   geom_sf(data = coast.line)+
   geom_sf(data = harbor_bay_1, fill = water.color) +
   geom_sf(data = Pacific, fill = water.color) +
+    geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+
+    geom_sf(data = Navy, fill = Navy.color) +
+
   geom_sf(data = dat.capensis.sp, 
           aes(color = Year), alpha = 0.6) +
   scale_color_viridis_c() +
@@ -546,6 +612,37 @@ ggplot(capensis.all) +
 #        device = "png", dpi = 600)
 
 ```
+
+```{r}
+dat.capensis.SS %>% st_as_sf(coords = c("Longitude", "Latitude"), 
+           crs = "+proj=longlat +datum=WGS84") -> dat.capensis.SS.sp 
+
+ggplot() +
+  geom_sf(data = coast.line)+
+  geom_sf(data = harbor_bay_1, fill = water.color) +
+  geom_sf(data = Pacific, fill = water.color) +
+    geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+
+    geom_sf(data = Navy, fill = Navy.color) +
+
+  geom_sf(data = dat.capensis.SS.sp, 
+          aes(color = Year), alpha = 0.6) +
+  scale_color_viridis_c() +
+  coord_sf(xlim = c(W.lon.SS, E.lon.SS),
+           ylim = c(S.lat.SS, N.lat.SS)) +
+
+  ylab("Latitude") +
+  xlab("Longitude") +
+  ggtitle("Delphinus capensis strandings along Silver Strand (2000-2019)") +
+  theme(plot.title = element_text(hjust = 0.5),
+        #legend.position = "top", #c(0.1, 0.3),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = land.color))
+```
+
 
 Look at what affects the stranding rate:
 
@@ -642,6 +739,12 @@ ggplot() +
   geom_sf(data = coast.line)+
   geom_sf(data = harbor_bay_1, fill = water.color) +
   geom_sf(data = Pacific, fill = water.color) +
+    geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+
+    geom_sf(data = Navy, fill = Navy.color) +
+
   geom_sf(data = dat.Tursiops.sp, 
           aes(color = Year), alpha = 0.6) +
   scale_color_viridis_c() +
@@ -662,6 +765,40 @@ ggplot() +
 
 ```{r}
 dat.1.SS %>% filter(GENUS == "Tursiops") -> dat.Tursiops.SS
+
+dat.Tursiops.SS  %>% filter(Latitude < SilverStrandN.lat &
+                              Latitude > US.MX.border.lat) %>% 
+  st_as_sf(coords = c("Longitude", "Latitude"), 
+           crs = "+proj=longlat +datum=WGS84") -> dat.Tursiops.SS.sp 
+
+ggplot() +
+  geom_sf(data = coast.line)+
+  geom_sf(data = harbor_bay_1, fill = water.color) +
+  geom_sf(data = Pacific, fill = water.color) +
+    geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+
+    geom_sf(data = Navy, fill = Navy.color) +
+
+  geom_sf(data = dat.Tursiops.SS.sp, 
+          aes(color = Year), alpha = 0.6) +
+  scale_color_viridis_c() +
+  coord_sf(xlim = c(W.lon.SS, E.lon.SS),
+           ylim = c(S.lat.SS, N.lat.SS)) +
+
+  ylab("Latitude") +
+  xlab("Longitude") +
+  ggtitle("Tursiops truncatus strandings along Silver Strand (2000-2019)") +
+  theme(plot.title = element_text(hjust = 0.5),
+        #legend.position = "top", #c(0.1, 0.3),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = land.color))
+```
+
+
+```{r}
 dat.1.noSS %>% filter(GENUS == "Tursiops") -> dat.Tursiops.noSS
 
 dat.Tursiops.SS %>% group_by(Year) %>%
