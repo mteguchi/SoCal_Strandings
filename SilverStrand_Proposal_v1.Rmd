@@ -156,7 +156,7 @@ in.SD.capensis %>% as.data.frame() %>%
   group_by(Year) %>%
   summarise(n = n(),
             n_per_km = n/((SD.coast.no.MB.SDB.length)/1000),
-            Coast = "All") -> stranding.perKm.all
+            Coast = "All") -> capensis.perKm.all
 
 
 in.SD.capensis.noSS %>% as.data.frame() %>%
@@ -164,19 +164,29 @@ in.SD.capensis.noSS %>% as.data.frame() %>%
   group_by(Year) %>%
   summarise(n = n(),
             n_per_km = n/((SD.coast.no.MB.SDB.length-SS.length)/1000),
-            Coast = "No SS") -> stranding.perKm.noSS
+            Coast = "No SS") -> capensis.perKm.noSS
 
 in.SD.capensis.SS %>% as.data.frame() %>%
   select(Year) %>%
   group_by(Year) %>%
   summarise(n = n(),
             n_per_km = n/((SS.length)/1000),
-            Coast = "SS only") -> stranding.perKm.SS
+            Coast = "SS only") -> capensis.perKm.SS
 
-stranding.perKm <- rbind(stranding.perKm.all, 
-                         stranding.perKm.noSS, 
-                         stranding.perKm.SS)
+stranding.perKm <- rbind(capensis.perKm.all, 
+                         capensis.perKm.noSS, 
+                         capensis.perKm.SS)
 
+capensis.perKm.all %>% 
+  select(Year, n, n_per_km) %>% 
+  transmute("Year" = Year, "n.all" = n, "n_per_km_all" = n_per_km) %>% #-> tmp
+  left_join(capensis.perKm.noSS, by = "Year") %>%
+  transmute("Year" = Year, "n.all" = n.all, "n_per_km_all" = n_per_km_all, 
+            "n.noSS" = n, "n_per_km_noSS" = n_per_km) %>%
+  left_join(capensis.perKm.SS, by = "Year") %>%
+  transmute("Year" = Year, "n.all" = n.all, "n_per_km_all" = n_per_km_all,
+            "n.noSS" = n.noSS, "n_per_km_noSS" = n_per_km_noSS, 
+            "n.SS" = n, "n_per_km_SS" = n_per_km) -> stranding.perKm.wide
 
 p <- ggplot(data = in.SD.bySp) +
   geom_bar(aes(x = reorder(Sp, -n), y = n),
@@ -266,7 +276,21 @@ knitr::include_graphics(paste0("figures/stranding_capensis.png"))
 
 ```
 
-The number of stranded long-beaked common dolphins per km of beach ranged from `r signif(min(stranding.perKm.all$n_per_km), 3)` to `r signif(max(stranding.perKm.all$n_per_km), 3)` along the coast. When Silver Strand was excluded from the coast line, it ranged from `r signif(min(stranding.perKm.noSS$n_per_km), 3)` to `r signif(max(stranding.perKm.noSS$n_per_km), 3)`. For Silver Strand, however, it ranged from `r signif(min(stranding.perKm.SS$n_per_km), 3)` to `r signif(max(stranding.perKm.SS$n_per_km), 3)`, indicating higher stranding rate at Silver Strand in some years compared with other parts of the coast line (Figure \@ref(fig:plot-StrandingRate)). 
+The number of stranded long-beaked common dolphins per km of beach ranged from `r signif(min(capensis.perKm.all$n_per_km), 3)` to `r signif(max(capensis.perKm.all$n_per_km), 3)` along the coast. When Silver Strand was excluded from the coast line, it ranged from `r signif(min(capensis.perKm.noSS$n_per_km), 3)` to `r signif(max(capensis.perKm.noSS$n_per_km), 3)`. For Silver Strand, however, it ranged from `r signif(min(capensis.perKm.SS$n_per_km), 3)` to `r signif(max(capensis.perKm.SS$n_per_km), 3)`, indicating higher stranding rate at Silver Strand in some years compared with other parts of the coast line (Table \@ref(tab:table-stranding-rate), Figure \@ref(fig:plot-StrandingRate)). 
+
+
+```{r table-stranding-rate, echo=FALSE, include=TRUE}
+
+knitr::kable(stranding.perKm.wide, 
+             digits = 2,
+             col.names = c("Year", "# all", "# all/km", "# no SS", "# no SS/km", "# SS noly", "# SS only/km"),
+             row.names = F,
+             caption = "Annual stranding rates along the San Diego county coast line (all), without strandings along Silver Strand (no SS), and Silver Strand only (SS only) ",
+             table.attr = "style='width:30%;'")
+
+```
+
+
 
 ```{r plot-StrandingRate, echo=FALSE, cache=TRUE, warning = FALSE, message = FALSE, fig.cap="Stranding rate, as computed as the number of strandings per km of coast line along the coast of San Diego county from 1990 to 2019. 'All' indicates the entire coast line, 'no SS' indicates excluding Silver Strand, and 'SS only' indicates Silver Strand only."}
 knitr::include_graphics(paste0("figures/strandingPerKm_capensis.png"))

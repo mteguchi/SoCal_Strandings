@@ -1,0 +1,458 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This document an initial analysis of cetacean strandings along the coast of San Diego county. We are interested in looking at if there is any temporal and spatial patterns of strandings, especially related to military bases. 
+
+In v2, I look at finer temporal scales - months, rather than years. 
+
+```{r setup}
+rm(list=ls())
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(ggridges)
+library(sf)
+#library(viridis)
+
+source("SoCal_Strandings_fcns.R")
+S.lat <- 32.4
+N.lat <- 33.55
+W.lon <- -118
+E.lon <- -116.8
+
+US.MX.border.lat <- 32.5344
+TJriver.lat <- 32.55
+SilverStrandN.lat <- 32.69
+DogBeach.Nend.lat <- 32.685
+Navy.base.S.lat <- 32.6369
+Navy.base.N.lat <- 32.6742
+
+col_defs <- cols(Specimen = col_character(),
+                 RecoveryConditionID = col_character(),
+                 IsSDCounty = col_character(),
+                 SpeciesID = col_character(),
+                 COMMONNAME = col_character(),
+                 GENUS = col_factor(),
+                 SPECIES = col_factor(),
+                 OriginID = col_character(),
+                 OriginDescription = col_character(),
+                 SDCountyMapID = col_factor(),
+                 Location = col_character(),
+                 Year = col_integer(),
+                 Month = col_integer(),
+                 Day = col_integer(),
+                 Latitude = col_double(),
+                 Latitude_Precision = col_double(),
+                 Latitude_Precision_Unit = col_character(),
+                 Longitude = col_double(),
+                 Longitude_Precision = col_double(),
+                 Longitude_Precision_Unit = col_character())
+
+# remove those with NA entries in lat/lon and San Diego Bay in Location
+dat.1 <- read_csv(file = "data/SDCetaStrandings2000_2019.csv",
+                  col_types = col_defs) %>% 
+  filter(!is.na(Latitude)) %>%
+  filter(Location != "San Diego Bay") %>%  # remove SDB
+  filter(Longitude > -118)       # remove San Clemente stranding
+
+# create a spatial object
+dat.1 %>% select(Longitude, Latitude, Location,
+                 Specimen, GENUS, SPECIES, COMMONNAME, 
+                 SDCountyMapID, Year, Month) %>% 
+  unite(col = "Year_Month", Year:Month, remove = F) %>%
+  mutate(Decimal_Date = lubridate::decimal_date(lubridate::ym(Year_Month))) %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), 
+           crs = "+proj=longlat +datum=WGS84") -> dat.1.sp
+
+```
+
+First look at the area map to orient ourselves. Some lat/lon seemed to be a bit off so went through one year at a time to see which ones needed to be corrected. Lines that are commented out were for that purpose. 
+
+Bring in shapefiles:
+
+```{r}
+# get the coast lines
+# Does this work with Windows?
+home.dir <- Sys.getenv("HOMEPATH")
+coast.line <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/COASTLINE"),
+                      layer = "coast") %>% 
+  st_transform(crs = "+proj=longlat +datum=WGS84") 
+
+# this is for plotting:
+harbor_bay_1 <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/Harbor_Bay"), 
+                        layer = "Harbor_Bay") %>% 
+   st_transform(crs = "+proj=longlat +datum=WGS84") 
+
+# I edited SDB in QGIS on my laptop (linux) so that Silver Strand is not included.
+# this is for computing coast length
+harbor_bay <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/SDB_v2"),
+               layer = "SDB_v2") %>% 
+  st_transform(crs = "+proj=longlat +datum=WGS84") 
+
+Pacific <-  st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/Pacific_Ocean"), 
+                    layer = "PACIFIC_OCEAN") %>% 
+  st_transform(crs = "+proj=longlat +datum=WGS84") 
+
+# get county lines
+county.lines <- st_read("data/ca-county-boundaries/CA_Counties")
+
+county.lines %>% filter(NAME == "San Diego") %>%
+  st_transform(crs = "+proj=longlat +datum=WGS84") -> SD.county.line
+
+# Silver Strand - created from the entire coast line above in QGIS
+SS <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/SilverStrand"),
+               layer = "SilverStrand") %>% 
+  st_transform(crs = "+proj=longlat +datum=WGS84") %>%
+  st_cast("LINESTRING")
+
+Navy <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/Navy_installations_poly"), 
+                layer = "Navy_installations_poly") %>% 
+  st_transform(crs = "+proj=longlat +datum=WGS84") %>%
+  st_make_valid()  # some duplicated vertices removed. 
+
+# https://gis.stackexchange.com/questions/404385/r-sf-some-edges-are-crossing-in-a-multipolygon-how-to-make-it-valid-when-using/404454
+
+
+land.color <- "cornsilk" #'#333333'
+water.color <- "lightcyan1"
+Navy.color <- "salmon"
+font.size <- 3.5
+
+```
+
+
+
+Exclude those that are found outside of SD county
+
+```{r}
+in.SD <- st_join(dat.1.sp, SD.county.line) %>% 
+   filter(!is.na(AWATER)) 
+
+ggplot() +
+  geom_sf(data = Pacific, fill = water.color, color = water.color) +
+  geom_sf(data = harbor_bay_1, fill = water.color) +
+  geom_sf(data = coast.line) +
+  
+  geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+  geom_sf(data = Navy, fill = Navy.color) +
+
+  geom_sf(data = in.SD, 
+          aes(color = as.factor(Year))) +
+  coord_sf(xlim = c(W.lon, E.lon),
+           ylim = c(S.lat, N.lat)) +
+  geom_text(data = data.frame(x = -117.1, y = 33.3),
+            aes(x = x, y = y, label = "San Diego"),
+            color = "black", 
+            size = font.size, fontface = "bold") + # angle = -45 
+  ylab("Latitude") +
+  xlab("Longitude") +
+  ggtitle("Cetacean strandings along San Diego County (2000-2019)") +
+  #scale_fill_continuous(name = "Map ID") +
+  theme(plot.title = element_text(hjust = 0.5),
+        #legend.position = "top", #c(0.1, 0.3),
+        legend.background = element_blank(),
+        legend.title = element_text("Map ID"),
+        panel.background = element_rect(fill = land.color))
+
+# ggsave(filename = "figures/StrandingLocations.png",
+#        device = "png",
+#        dpi = 600)
+
+
+```
+
+
+Plot strandings as a function of month. 
+
+```{r}
+#Y <- seq(2000, 2019)
+#Y <- 2019
+
+ggplot() +
+  geom_sf(data = Pacific, fill = water.color, color = water.color) +
+  geom_sf(data = harbor_bay_1, fill = water.color) +
+  geom_sf(data = coast.line) +
+  
+  geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+    geom_sf(data = Navy, fill = Navy.color) +
+
+  geom_sf(data = in.SD, 
+          aes(color = as.factor(Month)), alpha = 0.6) +
+  coord_sf(xlim = c(W.lon, E.lon),
+           ylim = c(S.lat, N.lat)) +
+  geom_text(data = data.frame(x = -117.1, y = 33.3),
+            aes(x = x, y = y, label = "San Diego"),
+            color = "black", 
+            size = font.size, fontface = "bold") + 
+  ylab("Latitude") +
+  xlab("Longitude") +
+  ggtitle("Cetacean strandings along San Diego County (2000-2019)") +
+  theme(plot.title = element_text(hjust = 0.5),
+        #legend.position = "top", #c(0.1, 0.3),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = land.color))
+
+
+```
+
+
+Just Silver Strand:
+
+```{r}
+W.lon.SS <- -117.35
+E.lon.SS <- -117.05
+SDB.mouth.lon <- -117.23
+N.lat.SS <- 32.73
+S.lat.SS <- US.MX.border.lat
+
+dat.1 %>% filter(Latitude < SilverStrandN.lat & 
+                   Latitude > US.MX.border.lat &
+                   Longitude > SDB.mouth.lon) %>% 
+  st_as_sf(coords = c("Longitude", "Latitude"), 
+           crs = "+proj=longlat +datum=WGS84") -> dat.1.SS.sp
+
+ggplot() +
+  geom_sf(data = coast.line)+
+  geom_sf(data = harbor_bay_1, fill = water.color) +
+  geom_sf(data = Pacific, fill = water.color) +
+  geom_sf(data = SD.county.line,
+          color = "purple",
+          fill = "transparent") +
+  
+  geom_sf(data = Navy, fill = Navy.color) +
+  
+  geom_sf(data = dat.1.SS.sp, 
+          aes(color = as.factor(Month)), alpha = 0.6) +
+  #geom_sf(data = in.bay.2, color = "black", size = 1.2) +
+  coord_sf(xlim = c(W.lon.SS, -117.05),
+           ylim = c(S.lat.SS, N.lat.SS)) +
+  ylab("Latitude") +
+  xlab("Longitude") +
+  ggtitle("Cetacean strandings along Silver Strand (2000-2019)") +
+  theme(plot.title = element_text(hjust = 0.5),
+        #legend.position = "top", #c(0.1, 0.3),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = land.color))
+
+# ggsave(p.2, filename = "figures/SS_strandings.png",
+#        device = "png", dpi = 600)
+```
+
+
+Simple statistics of # strandings per unit coast length
+
+```{r}
+# first, intersection between coast line and county
+SD.coast <- st_intersection(coast.line, SD.county.line)
+
+# need to remove Mission Bay and San Diego Bay
+# MB - convert polygon to line
+harbor_bay %>% filter(NAME == "MISSION BAY") -> MB.poly
+MB.line <- st_cast(MB.poly, "LINESTRING")
+MB.length <- sum(st_length(MB.line))
+
+# SDB coast length
+harbor_bay %>% filter(NAME == "SAN DIEGO BAY") -> SDB.poly
+SDB.line <- st_cast(SDB.poly, "LINESTRING")
+SDB.length <- sum(st_length(SDB.line))
+
+SD.coast.no.MB.SDB.length <- as.numeric(sum(st_length(SD.coast)) - MB.length - SDB.length)
+
+# Silver Strand coast length
+SS.length <- as.numeric(st_length(SS))
+
+# remove offshore findings
+in.SD.sp <- st_join(dat.1.sp, SD.county.line) %>% 
+   filter(!is.na(AWATER)) 
+
+in.SD.sp %>% as.data.frame() %>%
+  unite(col = "Sp", GENUS:SPECIES) %>%
+  group_by(Sp) %>%
+  summarise(n = n()) %>% 
+  arrange(desc(n)) -> in.SD.bySp
+
+in.SD.sp %>% filter(SPECIES == "capensis") -> in.SD.capensis
+
+# remove Silver Strand strandings
+in.SD.capensis %>% filter(Location != "Imperial Beach/Coronado") -> in.SD.capensis.noSS
+
+in.SD.capensis %>% filter(Location == "Imperial Beach/Coronado") -> in.SD.capensis.SS
+
+in.SD.capensis %>% as.data.frame() %>%
+  select(Year, Month) %>%
+  group_by(Year, Month) %>%
+  summarise(n = n(),
+            n_per_km = n/((SD.coast.no.MB.SDB.length)/1000),
+            Coast = "All") %>%
+  unite(col = "Year_Month", Year:Month, remove = F) %>%
+  mutate(Decimal_Date = lubridate::decimal_date(lubridate::ym(Year_Month))) -> capensis.perKm.all
+
+
+in.SD.capensis.noSS %>% as.data.frame() %>%
+  select(Year, Month) %>%
+  group_by(Year, Month) %>%
+  summarise(n = n(),
+            n_per_km = n/((SD.coast.no.MB.SDB.length-SS.length)/1000),
+            Coast = "No SS") %>%
+  unite(col = "Year_Month", Year:Month, remove = F) %>%
+  mutate(Decimal_Date = lubridate::decimal_date(lubridate::ym(Year_Month))) -> capensis.perKm.noSS
+
+in.SD.capensis.SS %>% as.data.frame() %>%
+  select(Year, Month) %>%
+  group_by(Year, Month) %>%
+  summarise(n = n(),
+            n_per_km = n/((SS.length)/1000),
+            Coast = "SS only") %>%
+  unite(col = "Year_Month", Year:Month, remove = F) %>%
+  mutate(Decimal_Date = lubridate::decimal_date(lubridate::ym(Year_Month))) -> capensis.perKm.SS
+
+capensis.perKm <- rbind(capensis.perKm.all, 
+                         capensis.perKm.noSS, 
+                         capensis.perKm.SS)
+
+capensis.perKm.all %>% 
+  select(Year, n, n_per_km) %>% 
+  transmute("Year" = Year, "n.all" = n, "n_per_km_all" = n_per_km) %>% #-> tmp
+  left_join(capensis.perKm.noSS, by = "Year") %>%
+  transmute("Year" = Year, "n.all" = n.all, "n_per_km_all" = n_per_km_all, 
+            "n.noSS" = n, "n_per_km_noSS" = n_per_km) %>%
+  left_join(capensis.perKm.SS, by = "Year") %>%
+  transmute("Year" = Year, "n.all" = n.all, "n_per_km_all" = n_per_km_all,
+            "n.noSS" = n.noSS, "n_per_km_noSS" = n_per_km_noSS, 
+            "n.SS" = n, "n_per_km_SS" = n_per_km) -> capensis.perKm.wide
+
+
+ggplot(capensis.perKm) +
+  geom_bar(aes(x = Year, 
+               y = n_per_km, 
+               fill = Coast),
+           stat = "identity",
+           position = position_dodge())  + 
+  scale_fill_viridis_d() +
+  theme(legend.position = "top",
+        legend.title = element_blank(),
+        axis.title.x = element_blank()) +
+  ylab("# strandings per km of coast line")
+
+# ggsave(filename = "figures/strandingPerKm.png",
+#        device = "png", dpi = 600)
+```
+
+
+Look at what affects the stranding rate:
+
+NOI: Northern and Southern Oscillation Indices - The NOI (extratropical-based Northern Oscillation Index) and its analog, the SOI* (extratropical-based Southern Oscillation Index) are new indices of midlatitude climate fluctuations that show interesting relationships with fluctuations in marine ecosystems and populations. They reflect the variability in equatorial and extratropical teleconnections and represent a wide range of local and remote climate signals. The indices are counterparts to the traditional SOI (Southern Oscillation Index) that relate variability in the atmospheric forcing of climate change in northern and southern midlatitude hemisphere regions. (https://oceanview.pfeg.noaa.gov/erddap/info/cciea_OC_NOI/index.html)
+
+PDO: Updated standardized values for the PDO index, derived as the leading PC of monthly SST anomalies in the North Pacific Ocean, poleward of 20N. The monthly mean global average SST anomalies are removed to separate this pattern of variability from any "global warming" signal that may be present in the data. (https://oceanview.pfeg.noaa.gov/erddap/info/cciea_OC_PDO/index.html)
+
+```{r}
+
+NOI <- read_csv(file = "data/NOI_v1.csv",
+                col_types = cols(time = col_datetime(),
+                  NOI = col_double(),
+                  SOIX = col_double(),
+                  SOI = col_double())) %>%
+  mutate(Year = lubridate::year(time),
+         Month = lubridate::month(time)) %>%
+  unite("Year_Month", Year:Month, remove = FALSE) %>%
+  mutate(Decimal_Date = lubridate::decimal_date(lubridate::ym(Year_Month)))
+
+
+PDO <- read_csv(file = "data/PDO_v1.csv",
+                col_types = cols(time = col_datetime())) %>%
+  mutate(Year = lubridate::year(time),
+         Month = lubridate::month(time)) %>%
+  unite("Year_Month", Year:Month, remove = FALSE) %>%
+  mutate(Decimal_Date = lubridate::decimal_date(lubridate::ym(Year_Month)))
+
+
+capensis.perKm.all %>% left_join(NOI, by = "Year_Month") %>%
+  left_join(PDO, by = "Year_Month") -> capensis.perKm.all.NOI.PDO
+
+ggplot(capensis.perKm.all.NOI.PDO) +
+  geom_path(aes(x = Decimal_Date, y = NOI)) +
+  geom_point(aes(x = Decimal_Date, y = NOI, color = n_per_km)) +
+  scale_color_viridis_c()
+  
+
+
+```
+
+
+```{r}
+ggplot(capensis.perKm.all.NOI.PDO) +
+  geom_point(aes(y = n_per_km, x = NOI))
+```
+
+
+
+```{r}
+ggplot(capensis.perKm.all.NOI.PDO) +
+  geom_path(aes(x = Decimal_Date, y = PDO)) +
+  geom_point(aes(x = Decimal_Date, y = PDO, color = n_per_km)) +
+  scale_color_viridis_c()
+  
+```
+
+```{r}
+
+
+ggplot(capensis.perKm.all.NOI.PDO) +
+  geom_point(aes(y = n_per_km, x = PDO))
+
+```
+
+
+```{r}
+capensis.perKm.SS %>% left_join(NOI, by = "Year_Month") %>%
+  left_join(PDO, by = "Year_Month") -> capensis.perKm.SS.NOI.PDO
+
+ggplot(capensis.perKm.SS.NOI.PDO) +
+ geom_path(aes(x = Decimal_Date, y = NOI)) +
+  geom_point(aes(x = Decimal_Date, y = NOI, color = n_per_km)) +
+  scale_color_viridis_c()
+  
+```
+
+
+```{r}
+ggplot(capensis.perKm.SS.NOI.PDO) +
+  geom_point(aes(y = n_per_km, x = NOI))
+```
+
+
+```{r}
+ggplot(capensis.perKm.SS.NOI.PDO) +
+ geom_path(aes(x = Decimal_Date, y = PDO)) +
+  geom_point(aes(x = Decimal_Date, y = PDO, color = n_per_km)) +
+  scale_color_viridis_c()
+
+```
+
+
+```{r}
+ggplot(capensis.perKm.SS.NOI.PDO) +
+  geom_path(aes(x = Decimal_Date, y = PDO)) +
+  geom_point(aes(x = Decimal_Date, y = PDO, color = n_per_km)) +
+  scale_color_viridis_c()
+  
+```
+
+
+```{r}
+
+ggplot(capensis.perKm.SS.NOI.PDO) +
+  geom_point(aes(y = n_per_km, x = PDO))
+
+```
+
+There is no apparent relationship between #/km and NOI/PDO. I guess it can't be that simple...
+

@@ -773,6 +773,18 @@ capensis.vs.delphis %>%
 
 capensis.all[is.na(capensis.all$n), "n"] <- 0
 
+capensis.vs.delphis %>% 
+  select(Year, capensis) %>% 
+  transmute("Year" = Year, "n.all" = capensis) %>% #-> tmp
+  mutate(n_per_km_all = n.all/((SD.coast.no.MB.SDB.length)/1000)) %>%
+  left_join(capensis.SS.byYear, by = "Year") %>%
+  transmute("Year" = Year, "n.all" = n.all, "n_per_km_all" = n_per_km_all, 
+            "n.SS" = n, "n_per_km_SS" = n_per_km) %>%
+  left_join(capensis.noSS.byYear, by = "Year") %>%
+  transmute("Year" = Year, "n.all" = n.all, "n_per_km_all" = n_per_km_all,
+            "n.SS" = n.SS, "n_per_km_SS" = n_per_km_SS, 
+            "n.noSS" = n, "n_per_km_noSS" = n_per_km) -> capensis.all.wide
+
 ggplot(capensis.all) +
   geom_bar(aes(x = Year, y = n_per_km, fill = Area), 
            stat = "identity", position = position_dodge()) +
