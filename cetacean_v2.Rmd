@@ -314,8 +314,7 @@ in.SD.capensis.SS %>% as.data.frame() %>%
   unite(col = "Year_Month", Year:Month, remove = F) %>%
   mutate(Decimal_Date = lubridate::decimal_date(lubridate::ym(Year_Month))) -> capensis.perKm.SS
 
-capensis.perKm <- rbind(capensis.perKm.all, 
-                         capensis.perKm.noSS, 
+capensis.perKm <- rbind( capensis.perKm.noSS, 
                          capensis.perKm.SS)
 
 capensis.perKm.all %>% 
@@ -331,11 +330,9 @@ capensis.perKm.all %>%
 
 
 ggplot(capensis.perKm) +
-  geom_bar(aes(x = Year, 
+  geom_path(aes(x = Decimal_Date, 
                y = n_per_km, 
-               fill = Coast),
-           stat = "identity",
-           position = position_dodge())  + 
+               color = Coast))  + 
   scale_fill_viridis_d() +
   theme(legend.position = "top",
         legend.title = element_blank(),
@@ -450,6 +447,51 @@ ggplot(capensis.perKm.SS.NOI.PDO) +
 ```{r}
 
 ggplot(capensis.perKm.SS.NOI.PDO) +
+  geom_point(aes(y = n_per_km, x = PDO))
+
+```
+
+
+
+```{r}
+capensis.perKm.noSS %>% left_join(NOI, by = "Year_Month") %>%
+  left_join(PDO, by = "Year_Month") -> capensis.perKm.noSS.NOI.PDO
+
+ggplot(capensis.perKm.noSS.NOI.PDO) +
+ geom_path(aes(x = Decimal_Date, y = NOI)) +
+  geom_point(aes(x = Decimal_Date, y = NOI, color = n_per_km)) +
+  scale_color_viridis_c()
+  
+```
+
+
+```{r}
+ggplot(capensis.perKm.noSS.NOI.PDO) +
+  geom_point(aes(y = n_per_km, x = NOI))
+```
+
+
+```{r}
+ggplot(capensis.perKm.noSS.NOI.PDO) +
+ geom_path(aes(x = Decimal_Date, y = PDO)) +
+  geom_point(aes(x = Decimal_Date, y = PDO, color = n_per_km)) +
+  scale_color_viridis_c()
+
+```
+
+
+```{r}
+ggplot(capensis.perKm.noSS.NOI.PDO) +
+  geom_path(aes(x = Decimal_Date, y = PDO)) +
+  geom_point(aes(x = Decimal_Date, y = PDO, color = n_per_km)) +
+  scale_color_viridis_c()
+  
+```
+
+
+```{r}
+
+ggplot(capensis.perKm.noSS.NOI.PDO) +
   geom_point(aes(y = n_per_km, x = PDO))
 
 ```
