@@ -785,6 +785,9 @@ capensis.vs.delphis %>%
             "n.SS" = n.SS, "n_per_km_SS" = n_per_km_SS, 
             "n.noSS" = n, "n_per_km_noSS" = n_per_km) -> capensis.all.wide
 
+#write.csv(capensis.all.wide, file = "data/capensis_strandings.csv",
+#          row.names = F)
+
 ggplot(capensis.all) +
   geom_bar(aes(x = Year, y = n_per_km, fill = Area), 
            stat = "identity", position = position_dodge()) +
