@@ -1,4 +1,70 @@
 
+
+# extracts loo statistics, including looic and Pareto-k statistics
+pareto.k.diag <- function(jm, MCMC.params, jags.data){
+  
+  n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  
+  loglik.obs <- jm$sims.list$loglik[, !is.na(jags.data$y)]
+  # get rid of NA columns - even if data existed (for example the first value) - no likelihood
+  # for the first data point
+  loglik.obs <- loglik.obs[, colSums(is.na(loglik.obs)) == 0]
+  
+  #loglik.obs <- jm$sims.list$loglik[, 2:jags.data$T]
+  # cores = 1 is needed in the relative_eff function if the number of cores was set to more than
+  # 1 with options(mc.cores = parallel::detectCores()) or something similear. See also here:
+  # https://discourse.mc-stan.org/t/error-in-loo-relative-eff-related-to-options-mc-cores/5610/2
+  
+  Reff <- relative_eff(exp(loglik.obs), 
+                       chain_id = rep(1:MCMC.params$n.chains, 
+                                      each = n.per.chain),
+                       cores = 1)
+  
+  loo.out <- loo(loglik.obs, r_eff = Reff, cores = 1)
+  return(list(loglik.obs = loglik.obs,
+              Reff = Reff,
+              loo.out = loo.out))
+}
+
+
+# computes LOOIC
+compute.LOOIC <- function(loglik, data.vector, MCMC.params){
+  n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  
+  loglik.vec <- as.vector(loglik)
+  
+  # each column corresponds to a data point and rows are MCMC samples
+  loglik.mat <- matrix(loglik.vec, nrow = n.per.chain * MCMC.params$n.chains)
+  
+  # take out the columns that correspond to missing data points
+  loglik.mat <- loglik.mat[, !is.na(data.vector)]
+  # loglik.mat <- matrix(loglik.vec[!is.na(data.vector)], 
+  #                      nrow = MCMC.params$n.chains * n.per.chain)
+  
+  Reff <- relative_eff(exp(loglik.mat),
+                       chain_id = rep(1:MCMC.params$n.chains,
+                                      each = n.per.chain),
+                       cores = 4)
+  
+  #
+  loo.out <- loo(loglik.mat, 
+                 r_eff = Reff, 
+                 cores = 4, k_threshold = 0.7)
+  
+  out.list <- list(Reff = Reff,
+                   loo.out = loo.out)
+  
+  return(out.list)  
+}
+
+
+# Extracting posterior samples from jags output:
+extract.samples <- function(varname, zm){
+  dev <- do.call(rbind, zm[, varname])
+  return(dev)
+}
+
+
 # default inputs are for the SCB.
 getCoastLine <- function(filename = "data/coast/coast_Epac.txt",
                          lon.limits = c(-121, -116.5),

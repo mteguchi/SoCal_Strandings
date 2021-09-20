@@ -7,34 +7,31 @@ This is an attempt to model the number of stranded *Delphinus capensis* (*Dc*) a
 
 N0 for capensis: 8,174 CV = 32% for Santa Catalina Basin. Jefferson et al. 2014 (Jefferson TA, Smultea MA, Bacon CE. 2014. Southern California Bight marine mammal density and abundance from aerial surveys, 2008-2013. Journal of Marine Animals and Their Ecology. 7: 14-30.)
 
+The above is not used any longer. I used the abudance estimates from Becker et al. See below.
+
 To simplify the modeling process, I make the following assumptions.
 
 1.  Carcass deposition probability (probability that a carcass is washed up onshore) is the same for SS as other areas in San Diego county. 
 2.  Carcass deposition and detection probabilities (collectively $f$, i.e., probability of a carcass depositing on a beach and being detected and reported to the stranding response team) are the same over time and among all beaches in San Diego county.
-3.  Instantaneous natural mortality rate $\mu_0$ and anthropogenic mortality rates $h$ are the same for all *Dc*s in the area and remained constant over time. These two are combined in the analysis ($\mu = \mu_0 + h$) and remain constant over time. Furthermore, I assume that the birth rate ($b$) remains constant and is combined with the mortality rates ($r = b - (\mu_0 + h)$).
-4.  Additional mortality along SS in year $t$ ($\mu_{1,t}$) is time-dependent. ($\mu_{1,t}$ $\ge$ 0).
-5.  No additional mortality existed prior to 2000.
-6.  Abundance of *Dc* in 1999 was unknown but it was estimated to be 8174 (CV = 32%) in 2013 (Jefferson et al. 2014).
+3.  Instantaneous natural mortality rate $\mu_0$ is the same for all *Dc*s in the area and remained constant over time. Additional mortality rates $\mu_{1,t}$ and $\mu_{2,t}$ affect SS and non-SS areas, respectively, and vary over time. Furthermore, I assume that the birth rate ($b$) remains constant ($r = b - \mu$).
 
-The number of strandings along the San Diego county in year t ($D_t$) is divided into two parts (SS and areas outside of SS): 
+The number of strandings along the San Diego county in year t ($D_t$) is divided into two parts. For the SS strandings: 
 
 $D_t = D_{SS,t} + D_{\bar{SS},t}$
 
-$D_{SS,t} = \int_0^1 N_t P_{SS} (\mu + \mu_1)f dt$,
+$D_{SS,t} = \int_0^1 N_t P_{SS} (\mu + \mu_1)f dt = N_t P_{SS} (\mu + \mu{1,t}) f$,
 
-where $P_{SS}$ is the probability that a *Dc* is along SS. I fix this to the proportion of the length of SS (X km) relative to the entire coast line of the San Diego county (Y km; $P_{SS} = X/Y = Z$).
+where $P_{SS}$ is the probability that a *Dc* is along SS. I fix this to the proportion of the length of SS (22.13574 km) relative to the entire coast line of the San Diego county (150.403 km; $P_{SS} = 0.147$).
 
-$N_t = N_0 e^{(r - \mu_1)t}$
-
-We do not have an abundance estimate for 1999. However, we have an estimate for 2013 so we use it to estimate $N_{1999}$ as part of the modeling process. 
+$N_t = N_{t-1} e^{(r - \mu_{1,t} - \mu_{2,t})}$
 
 For the areas outside of SS, 
 
-$D_{\bar{SS},t} = \int_0^1 N_t (1 - P_{SS}) \mu f dt$,
+$D_{\bar{SS},t} = \int_0^1 N_t (1 - P_{SS}) (\mu + \mu_{2,t}) f dt = N_t (1 - P_{SS}) (\mu + \mu_{2,t})$,
 
 We assume that the observed $D_{SS,t}$ and $D_{\bar{SS},t}$ are distributed as either Poisson or negative binomial distribution with the mean equals to the above equations.
 
-In this model, unknowns are abundance ($N_t$, except $N_{1999}$), mortality rates ($\mu$ and $\mu_{1,t}$), and the birth rate ($b = r + \mu$), which are inferred from the observed numbers of *Dc* carcasses.
+In this model, unknowns are abundance ($N_t$, except $N_{1999}$), mortality rates ($\mu$, $\mu_{1,t}$, and $\mu_{2,t}$), and the birth rate ($b = r + \mu$), which are inferred from the observed numbers of *Dc* carcasses.
 
 ```{r setup}
 rm(list=ls())
@@ -42,45 +39,326 @@ library(jagsUI)
 library(tidyverse)
 library(ggplot2)
 library(bayesplot)
+library(loo)
 
-# load data on capensis strandings
-capensis.data <- read.csv(file = "data/capensis_strandings.csv")
-
-# coast line lengths
-SD.coast.length <- 150403.3/1000 # meters from cetacean_v1.Rmd (SD.coast.no.MB.SDB.length)
-SS.length <- 22135.74/1000  # meters from cetacean_v1.Rmd (SS.length)
-
-D1 <- as.vector(capensis.data$n.SS)
-D1[is.na(D1)] <- 0
-
-D2 <- as.vector(capensis.data$n.noSS)
-
-N <- c(rep(NA, 13), 8174, rep(NA, 7))
-
-jags.data <- list(D1 = c(0, D1),
-                  D2 = c(0, D2),
-                  N = N,
-                  P1 = SS.length/SD.coast.length,
-                  T = (length(D1) + 1))
-
-parameters.list <- c("r", "f", "mu", "mu1", "sigma_N", "N")
-
+# MCMC setup
 MCMC.params <- list(n.samples = 100000,
                     n.burnin = 75000,
                     n.thin = 5,
                     n.chains = 5)
 
-jm.1 <- jags(data = jags.data,
-             #inits = inits,
-             parameters.to.save= parameters.list,
-             model.file = "models/model_DcStranding_v1.txt",
-             n.chains = MCMC.params$n.chains,
-             n.burnin = MCMC.params$n.burnin,
-             n.thin = MCMC.params$n.thin,
-             n.iter = MCMC.params$n.samples,
-             DIC = T, 
-             parallel=T)
+n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+
+# load data on capensis strandings
+capensis.data <- read.csv(file = "data/capensis_strandings.csv")
+
+# coast line lengths
+SD.coast.length <- 150403.3 # meters from cetacean_v1.Rmd (SD.coast.no.MB.SDB.length)
+SS.length <- 22135.74       # meters from cetacean_v1.Rmd (SS.length)
+# from Becker et al. 2020. Habitat based density estimates for cetaceans in CA current ecosystem.
+# 2001,53044
+# 2005,52356
+# 2008,58624
+# 2014,58794
+# 2018,83379
+N <- c(NA, 53044, NA, NA, NA, 
+       52356, NA, NA, 58624, 
+       rep(NA, 5), 58794, rep(NA, 3), 83379, NA)
+
 
 ```
 
+
+
+```{r jags_v1, cache=T}
+D1 <- as.vector(capensis.data$n.SS)
+D1[is.na(D1)] <- 0
+
+D2 <- as.vector(capensis.data$n.noSS)
+
+# remove the first so we can start with known N
+jags.data <- list(D1 = D1[2:length(D1)],
+                  D2 = D2[2:length(D2)],
+                  P1 = SS.length/SD.coast.length,
+                  T = length(D1) - 1,
+                  N = N[2:length(N)])
+
+parameters.list <- c("r", "f", "mu", 
+                     "mu1", "mu2", 
+                     "b", "sigma_N", "mu_N",
+                     "mu_D1", "mu_D2", 
+                     "Deviance", "loglik")
+
+if (!file.exists("RData/jags_out_v1.rds")){
+  # v1 uses Poisson as the likelihood
+  jm.1 <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v1.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T, 
+               parallel=T)
+  
+  saveRDS(jm.1, file = "RData/jags_out_v1.rds")
+  
+} else {
+  
+  jm.1 <- readRDS(file = "RData/jags_out_v1.rds")
+}
+
+
+
+```
+
+
+Check for model fit, convergence, etc
+
+```{r}
+Rhat <- unlist(lapply(jm.1$Rhat, FUN = max))
+
+
+```
+
+Extract loglikelihood samples and look at LOOIC and Pareto k statistic
+
+```{r}
+
+loglik <- cbind(jm.1$sims.list$loglik[,,1], jm.1$sims.list$loglik[,,2])
+# loglik.D1 <- jm$sims.list$loglik[, , 1]
+# loglik.D2 <- jm$sims.list$loglik[, , 2]
+
+Reff <- relative_eff(exp(loglik), 
+                     chain_id = rep(1:MCMC.params$n.chains, 
+                                    each = n.per.chain),
+                     cores = 1)
+loo.out <- loo(loglik, r_eff = Reff, cores = 1)
+
+plot(loo.out)
+```
+
+They are not very good... may have to look into negative binomial likelihood, rather than Poisson... 
+
+
+```{r jags_v2, cache=T}
+parameters.list <- c("r", "f", "mu", 
+                     "mu1", "mu2", 
+                     "b", "sigma_N", "mu_N",
+                     "mu_D1", "mu_D2", 
+                     "Deviance", "loglik",
+                     "p1", "p2")
+
+if (!file.exists("RData/jags_out_v2.rds")){
+  
+  # v2 uses Negative Binomial as the likelihood
+  jm.2 <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v2.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T, 
+               parallel=T)
+  saveRDS(jm.2, file = "RData/jags_out_v2.rds")
+  
+} else {
+  
+  jm.2 <- readRDS(file = "RData/jags_out_v2.rds")
+}
+
+
+```
+
+
+Check for model fit, convergence, etc
+
+```{r}
+Rhat <- unlist(lapply(jm.2$Rhat, FUN = max))
+
+Rhat
+```
+
+Extract loglikelihood samples and look at LOOIC and Pareto k statistic
+
+```{r}
+
+loglik <- cbind(jm.2$sims.list$loglik[,,1], jm.2$sims.list$loglik[,,2])
+# loglik.D1 <- jm$sims.list$loglik[, , 1]
+# loglik.D2 <- jm$sims.list$loglik[, , 2]
+
+Reff <- relative_eff(exp(loglik), 
+                     chain_id = rep(1:MCMC.params$n.chains, 
+                                    each = n.per.chain),
+                     cores = 1)
+loo.out <- loo(loglik, r_eff = Reff, cores = 1)
+
+plot(loo.out)
+```
+
+Again the second half is not good, which is supposed to be D2 (non SS portion)... something is not quite right here. 
+
+
+
+```{r jags_v3, cache=T}
+parameters.list <- c("r", "f", "mu", 
+                     "mu1", "mu2", 
+                     "b", "sigma_N", "mu_N",
+                     "mu_D1", "mu_D2", 
+                     "Deviance", "loglik",
+                     "p1")
+
+if (!file.exists("RData/jags_out_v3.rds")){
+  
+  # v3 uses Negative Binomial and Poisson as the likelihood
+  jm.3 <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v3.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T, 
+               parallel=T)
+  saveRDS(jm.2, file = "RData/jags_out_v3.rds")
+  
+} else {
+  
+  jm.3 <- readRDS(file = "RData/jags_out_v3.rds")
+}
+
+
+```
+
+
+Check for model fit, convergence, etc
+
+```{r}
+Rhat <- unlist(lapply(jm.2$Rhat, FUN = max))
+
+Rhat
+```
+
+Extract loglikelihood samples and look at LOOIC and Pareto k statistic
+
+```{r}
+
+loglik <- cbind(jm.2$sims.list$loglik[,,1], jm.2$sims.list$loglik[,,2])
+# loglik.D1 <- jm$sims.list$loglik[, , 1]
+# loglik.D2 <- jm$sims.list$loglik[, , 2]
+
+Reff <- relative_eff(exp(loglik), 
+                     chain_id = rep(1:MCMC.params$n.chains, 
+                                    each = n.per.chain),
+                     cores = 1)
+loo.out <- loo(loglik, r_eff = Reff, cores = 1)
+
+plot(loo.out)
+```
+
+It appears that v1 is better than v2 looking at data and parameter estimates... 
+
+```{r}
+
+mean.mu_D1 <- jm.1$mean$mu_D1
+low.mu_D1 <- jm.1$q2.5$mu_D1
+high.mu_D1 <- jm.1$q97.5$mu_D1
+
+mean.mu_D2 <- jm.1$mean$mu_D2
+low.mu_D2 <- jm.1$q2.5$mu_D2
+high.mu_D2 <- jm.1$q97.5$mu_D2
+
+mean.mu1 <- jm.1$mean$mu1
+low.mu1 <- jm.1$q2.5$mu1
+high.mu1 <- jm.1$q97.5$mu1
+
+mean.mu2 <- jm.1$mean$mu2
+low.mu2 <- jm.1$q2.5$mu2
+high.mu2 <- jm.1$q97.5$mu2
+
+ggplot(data.frame(D1 = jags.data$D1, 
+                  mu_D1 = mean.mu_D1,
+                  high.mu_D1 = high.mu_D1,
+                  low.mu_D1 = low.mu_D1,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = time, y = D1), color = "red") +
+  geom_point(aes(x = time, y = mu_D1), color = "blue") +
+  geom_errorbar(aes(x = time, ymin = low.mu_D1, ymax = high.mu_D1))
+
+```
+
+
+```{r}
+ggplot(data.frame(D1 = jags.data$D1, 
+                  mu1 = mean.mu1, 
+                  mu_D1 = mean.mu_D1, 
+                  low_mu1 = low.mu1,
+                  high_mu1 = high.mu1,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = D1, y = mu1), color = "red") +
+  geom_errorbar(aes(x = D1, ymin = low_mu1, ymax = high_mu1))
+
+
+```
+
+```{r}
+ggplot(data.frame(D2 = jags.data$D2, 
+                  mu2 = mean.mu2, 
+                  mu_D2 = mean.mu_D2, 
+                  low_mu2 = low.mu2,
+                  high_mu2 = high.mu2,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = D2, y = mu2), color = "red") +
+  geom_errorbar(aes(x = D2, ymin = low_mu2, ymax = high_mu2))
+
+```
+
+
+```{r}
+
+ggplot(data.frame(D2 = jags.data$D2, 
+                  mu_D2 = mean.mu_D2,
+                  high.mu_D2 = high.mu_D2,
+                  low.mu_D2 = low.mu_D2,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = time, y = D2), color = "red") +
+  geom_point(aes(x = time, y = mu_D2), color = "blue") +
+  geom_errorbar(aes(x = time, ymin = low.mu_D2, ymax = high.mu_D2))
+
+```
+
+Do mu1 and mu2 coincide?
+
+```{r}
+ggplot(data.frame(mean.mu1 = mean.mu1, 
+                  mean.mu2 = mean.mu2,
+                  time = seq(2001, 2019))) + 
+  geom_point(aes(x = mean.mu1, y = mean.mu2, color = factor(time)))
+```
+
+
+
+```{r}
+mean.mu_N <- jm.1$mean$mu_N
+low.mu_N <- jm.1$q2.5$mu_N
+high.mu_N <- jm.1$q97.5$mu_N
+
+ggplot(data.frame(N = jags.data$N, 
+                  mu_N = mean.mu_N, 
+                  low.mu_N = low.mu_N,
+                  high.mu_N = high.mu_N,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = time, y = mu_N)) +
+  geom_errorbar(aes(x = time, ymin = low.mu_N, ymax = high.mu_N)) + 
+  geom_point(aes(x = time, y = N), color = "red", size = 2)
+
+```
+
+```{r}
+mcmc_dens(jm.1$samples, c("r", "mu", "f"))
+```
 
