@@ -597,6 +597,9 @@ ggplot(on.base.by.inst.summary) +
   facet_wrap("instname") +
   scale_fill_viridis_d() +
   theme(axis.title.x = element_blank())
+
+# ggsave("figures/stranding_by_base.png",
+#        device = "png", dpi = 600)
 ```
 ```{r}
 on.base.by.inst.summary %>% data.frame()
@@ -615,6 +618,7 @@ ggplot(on.base.by.inst.CP.summary) +
   #geom_point(aes(x = Year, y = n, color = Sp)) +
   #facet_grid(rows = "instname") +
   scale_fill_viridis_d() +
+  ggtitle("Strandings in MCB Camp Pendleton") +
   theme(axis.title.x = element_blank())
 
 ```
@@ -665,6 +669,8 @@ ggplot(on.base.by.inst.SS.summary) +
   scale_fill_viridis_d() +
   theme(axis.title.x = element_blank())
 
+# ggsave("figures/SS_strandings_by_base.png",
+#        device = "png", dpi = 600)
 ```
 
 Makes sense to look at just Delphins, especially capensis. 
@@ -692,10 +698,12 @@ dat.Delphinus %>%  st_as_sf(coords = c("Longitude", "Latitude"),
 ggplot(dat.Delphinus) +
   geom_histogram(aes(x = Year, fill = SPECIES),
            position = position_dodge()) +
-    scale_fill_viridis_d() +
+  scale_fill_viridis_d() +
+  ggtitle("Delphinus strnadings along SD") +
   theme(axis.title.x = element_blank())
 
-
+# ggsave("figures/Delphinus_strandings_per_Year.png",
+#        device = "png", dpi = 600)
 ```
 
 ```{r}
@@ -842,14 +850,16 @@ on.base.by.inst %>% filter(instname != "MCB Camp Pendleton") %>%
 dat.capensis.SS.sp %>% st_join(Navy) %>%
   filter(is.na(Shape_Area)) %>% 
   as.data.frame() %>% 
-  select(Specimen, GENUS, SPECIES, SDCountyMapID, Year, Month, instname, geometry) %>%
+  select(Specimen, GENUS, SPECIES, 
+         SDCountyMapID, Year, Month, 
+         instname, geometry) %>%
   unite(col = "Sp", GENUS:SPECIES) %>%
   filter(Sp == "Delphinus_capensis") ->  off.base.SS.capensis
 
 # find the coast line length for each base:
 Navy %>% filter(instname == "NAS North Island") -> NI.poly
 SDB.NI.poly <- st_intersection(SDB.poly, NI.poly)
-SDB.NI.line <- st_cast(SDB.NI.line, "MULTILINESTRING")
+SDB.NI.line <- st_cast(SDB.NI.poly, "MULTILINESTRING")
 
 NI.line <- st_cast(NI.poly, "MULTILINESTRING")
 
@@ -1066,7 +1076,7 @@ ggplot(Tursiops.all.NOI.PDO) +
   geom_point(aes(x = PDO, y = n_per_km, color = Area))
 ```
 
-Also, possibly a negative regative relationship with PDO.
+Also, possibly a negative relationship with PDO.
 
 
 ```{r}
