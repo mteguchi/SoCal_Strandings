@@ -12,6 +12,7 @@
 # mu1 is the additional mortality for non-SS beaches 
 # mu2 is the additional mortality for SS beach 
 # r = b - mu, where b is the birth rate
+# f is carcass recovery rate
 
 model{
 
@@ -45,7 +46,7 @@ model{
 	}
 	
 	# priors:
-	mu ~ dunif(0, 0.1)
+	mu ~ dunif(0.001, 0.3)
 	for (k in 1:T){
 		mu1[k] ~ dunif(0.001, 0.10)  #dbeta(1, 5)
 		mu2[k] ~ dunif(0.001, 0.10) #dbeta(1, 5)

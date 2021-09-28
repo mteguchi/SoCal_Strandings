@@ -13,6 +13,7 @@
 # mu1 is the additional mortality for non-SS beaches 
 # mu2 is the additional mortality for SS beach 
 # r = b - mu, where b is the birth rate
+# f is carcass recovery rate
 
 model{
 
