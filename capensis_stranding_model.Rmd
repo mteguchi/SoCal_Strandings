@@ -41,6 +41,7 @@ library(ggplot2)
 library(bayesplot)
 library(loo)
 
+source("SoCal_Strandings_fcns.R")
 # MCMC setup
 MCMC.params <- list(n.samples = 100000,
                     n.burnin = 75000,
@@ -61,8 +62,8 @@ SS.length <- 22135.74       # meters from cetacean_v1.Rmd (SS.length)
 # 2008,58624
 # 2014,58794
 # 2018,83379
-N <- c(NA, 53044, NA, NA, NA, 
-       52356, NA, NA, 58624, 
+N <- c(NA, 53044, NA, NA, NA,
+       52356, NA, NA, 58624,
        rep(NA, 5), 58794, rep(NA, 3), 83379, NA)
 
 
@@ -79,7 +80,7 @@ D2 <- as.vector(capensis.data$n.noSS)
 # remove the first so we can start with known N
 jags.data <- list(D1 = D1[2:length(D1)],
                   D2 = D2[2:length(D2)],
-                  P1 = SS.length/SD.coast.length,
+                  P_SS = SS.length/SD.coast.length,
                   T = length(D1) - 1,
                   N = N[2:length(N)])
 
@@ -116,31 +117,10 @@ if (!file.exists("RData/jags_out_v1.rds")){
 
 Check for model fit, convergence, etc
 
-```{r}
-Rhat <- unlist(lapply(jm.1$Rhat, FUN = max))
+```{r v1_diag}
+jm.1.MCMC <- MCMC.diag(jm = jm.1, MCMC.params = MCMC.params)
 
-Rhat
 ```
-
-Extract loglikelihood samples and look at LOOIC and Pareto k statistic
-
-```{r}
-
-loglik <- cbind(jm.1$sims.list$loglik[,,1], jm.1$sims.list$loglik[,,2])
-# loglik.D1 <- jm$sims.list$loglik[, , 1]
-# loglik.D2 <- jm$sims.list$loglik[, , 2]
-
-Reff <- relative_eff(exp(loglik), 
-                     chain_id = rep(1:MCMC.params$n.chains, 
-                                    each = n.per.chain),
-                     cores = 1)
-loo.out <- loo(loglik, r_eff = Reff, cores = 1)
-
-plot(loo.out)
-```
-
-They are not very good... may have to look into negative binomial likelihood, rather than Poisson... 
-
 
 ```{r jags_v2, cache=T}
 parameters.list <- c("r", "f", "mu", 
@@ -174,33 +154,10 @@ if (!file.exists("RData/jags_out_v2.rds")){
 ```
 
 
-Check for model fit, convergence, etc
+```{r v2_diag}
+jm.2.MCMC <- MCMC.diag(jm = jm.2, MCMC.params = MCMC.params)
 
-```{r}
-Rhat <- unlist(lapply(jm.2$Rhat, FUN = max))
-
-Rhat
 ```
-
-Extract loglikelihood samples and look at LOOIC and Pareto k statistic
-
-```{r}
-
-loglik <- cbind(jm.2$sims.list$loglik[,,1], jm.2$sims.list$loglik[,,2])
-# loglik.D1 <- jm$sims.list$loglik[, , 1]
-# loglik.D2 <- jm$sims.list$loglik[, , 2]
-
-Reff <- relative_eff(exp(loglik), 
-                     chain_id = rep(1:MCMC.params$n.chains, 
-                                    each = n.per.chain),
-                     cores = 1)
-loo.out <- loo(loglik, r_eff = Reff, cores = 1)
-
-plot(loo.out)
-```
-
-Again the second half is not good, which is supposed to be D2 (non SS portion)... something is not quite right here. 
-
 
 
 ```{r jags_v3, cache=T}
@@ -231,34 +188,42 @@ if (!file.exists("RData/jags_out_v3.rds")){
   jm.3 <- readRDS(file = "RData/jags_out_v3.rds")
 }
 
+jm.3.MCMC <- MCMC.diag(jm = jm.3, MCMC.params = MCMC.params)
 
 ```
 
 
-Check for model fit, convergence, etc
 
-```{r}
-Rhat <- unlist(lapply(jm.3$Rhat, FUN = max))
+```{r jags_v4, cache=T}
+parameters.list <- c("r", "f", "mu", 
+                     "mu1", "mu2", 
+                     "b", "sigma_N", "mu_N",
+                     "mu_D1", "mu_D2", 
+                     "Deviance", "loglik",
+                     "p2")
 
-Rhat
-```
+if (!file.exists("RData/jags_out_v4.rds")){
+  
+  # v4 uses Negative Binomial and Poisson as the likelihood
+  jm.4 <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v4.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T, 
+               parallel=T)
+  saveRDS(jm.4, file = "RData/jags_out_v4.rds")
+  
+} else {
+  
+  jm.4 <- readRDS(file = "RData/jags_out_v4.rds")
+}
 
-Extract loglikelihood samples and look at LOOIC and Pareto k statistic
+jm.4.MCMC <- MCMC.diag(jm = jm.4, MCMC.params = MCMC.params)
 
-```{r}
-
-loglik <- cbind(jm.3$sims.list$loglik[,,1], 
-                jm.3$sims.list$loglik[,,2])
-# loglik.D1 <- jm$sims.list$loglik[, , 1]
-# loglik.D2 <- jm$sims.list$loglik[, , 2]
-
-Reff <- relative_eff(exp(loglik), 
-                     chain_id = rep(1:MCMC.params$n.chains, 
-                                    each = n.per.chain),
-                     cores = 1)
-loo.out <- loo(loglik, r_eff = Reff, cores = 1)
-
-plot(loo.out)
 ```
 
 
@@ -295,33 +260,11 @@ if (!file.exists("RData/jags_out_v1a.rds")){
 ```
 
 
-Check for model fit, convergence, etc
+```{r v1a_diag}
+jm.1a.MCMC <- MCMC.diag(jm = jm.1a, MCMC.params = MCMC.params)
 
-```{r}
-Rhat <- unlist(lapply(jm.1a$Rhat, FUN = max))
-
-Rhat
 ```
 
-Extract loglikelihood samples and look at LOOIC and Pareto k statistic
-
-```{r}
-
-loglik <- cbind(jm.1a$sims.list$loglik[,,1], 
-                jm.1a$sims.list$loglik[,,2])
-# loglik.D1 <- jm$sims.list$loglik[, , 1]
-# loglik.D2 <- jm$sims.list$loglik[, , 2]
-
-Reff <- relative_eff(exp(loglik), 
-                     chain_id = rep(1:MCMC.params$n.chains, 
-                                    each = n.per.chain),
-                     cores = 1)
-loo.out <- loo(loglik, r_eff = Reff, cores = 1)
-
-plot(loo.out)
-```
-
-They are very good... may have to look into negative binomial likelihood, rather than Poisson... 
 
 
 ```{r jags_v2a, cache=T}
@@ -356,33 +299,10 @@ if (!file.exists("RData/jags_out_v2a.rds")){
 ```
 
 
-Check for model fit, convergence, etc
+```{r v2a_diag}
+jm.2a.MCMC <- MCMC.diag(jm = jm.2a, MCMC.params = MCMC.params)
 
-```{r}
-Rhat <- unlist(lapply(jm.2a$Rhat, FUN = max))
-
-Rhat
 ```
-
-Extract loglikelihood samples and look at LOOIC and Pareto k statistic
-
-```{r}
-
-loglik <- cbind(jm.2a$sims.list$loglik[,,1], 
-                jm.2a$sims.list$loglik[,,2])
-# loglik.D1 <- jm$sims.list$loglik[, , 1]
-# loglik.D2 <- jm$sims.list$loglik[, , 2]
-
-Reff <- relative_eff(exp(loglik), 
-                     chain_id = rep(1:MCMC.params$n.chains, 
-                                    each = n.per.chain),
-                     cores = 1)
-loo.out <- loo(loglik, r_eff = Reff, cores = 1)
-
-plot(loo.out)
-```
-
-The second half is not good, which is supposed to be D2 (non SS portion)... something is not quite right here. 
 
 
 
@@ -414,9 +334,44 @@ if (!file.exists("RData/jags_out_v3a.rds")){
   jm.3a <- readRDS(file = "RData/jags_out_v3a.rds")
 }
 
+jm.3a.MCMC <- MCMC.diag(jm = jm.3a, MCMC.params = MCMC.params)
 
 ```
 
+
+
+
+```{r jags_v4a, cache=T}
+parameters.list <- c("r", "f", "mu", 
+                     "mu1", "mu2", 
+                     "b", "sigma_N", "mu_N",
+                     "mu_D1", "mu_D2", 
+                     "Deviance", "loglik",
+                     "p2")
+
+if (!file.exists("RData/jags_out_v4a.rds")){
+  
+  # v4 uses Negative Binomial and Poisson as the likelihood
+  jm.4a <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v4a.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T, 
+               parallel=T)
+  saveRDS(jm.4a, file = "RData/jags_out_v4a.rds")
+  
+} else {
+  
+  jm.4a <- readRDS(file = "RData/jags_out_v4a.rds")
+}
+
+jm.4a.MCMC <- MCMC.diag(jm = jm.4a, MCMC.params = MCMC.params)
+
+```
 
 mu1 (SS) is time dependent and mu2 is constant in the following three models:
 
@@ -448,37 +403,9 @@ if (!file.exists("RData/jags_out_v1b.rds")){
 }
 
 
+jm.1b.MCMC <- MCMC.diag(jm = jm.1b, MCMC.params = MCMC.params)
 
 ```
-
-
-Check for model fit, convergence, etc
-
-```{r}
-Rhat <- unlist(lapply(jm.1b$Rhat, FUN = max))
-
-Rhat
-```
-
-Extract loglikelihood samples and look at LOOIC and Pareto k statistic
-
-```{r}
-
-loglik <- cbind(jm.1b$sims.list$loglik[,,1], 
-                jm.1b$sims.list$loglik[,,2])
-# loglik.D1 <- jm$sims.list$loglik[, , 1]
-# loglik.D2 <- jm$sims.list$loglik[, , 2]
-
-Reff <- relative_eff(exp(loglik), 
-                     chain_id = rep(1:MCMC.params$n.chains, 
-                                    each = n.per.chain),
-                     cores = 1)
-loo.out <- loo(loglik, r_eff = Reff, cores = 1)
-
-plot(loo.out)
-```
-
-They are okay... SS portion doesn't look so good. 
 
 
 ```{r jags_v2b, cache=T}
@@ -509,37 +436,10 @@ if (!file.exists("RData/jags_out_v2b.rds")){
   jm.2b <- readRDS(file = "RData/jags_out_v2b.rds")
 }
 
+jm.2b.MCMC <- MCMC.diag(jm = jm.2b, MCMC.params = MCMC.params)
 
 ```
 
-
-Check for model fit, convergence, etc
-
-```{r}
-Rhat <- unlist(lapply(jm.2b$Rhat, FUN = max))
-
-Rhat
-```
-
-Extract loglikelihood samples and look at LOOIC and Pareto k statistic
-
-```{r}
-
-loglik <- cbind(jm.2b$sims.list$loglik[,,1], 
-                jm.2b$sims.list$loglik[,,2])
-# loglik.D1 <- jm$sims.list$loglik[, , 1]
-# loglik.D2 <- jm$sims.list$loglik[, , 2]
-
-Reff <- relative_eff(exp(loglik), 
-                     chain_id = rep(1:MCMC.params$n.chains, 
-                                    each = n.per.chain),
-                     cores = 1)
-loo.out <- loo(loglik, r_eff = Reff, cores = 1)
-
-plot(loo.out)
-```
-
-The second half is not good, which is supposed to be D2 (non SS portion)... something is not quite right here. Negbin doesn't work well for non-SS
 
 
 ```{r jags_v3b, cache=T}
@@ -570,38 +470,63 @@ if (!file.exists("RData/jags_out_v3b.rds")){
   jm.3b <- readRDS(file = "RData/jags_out_v3b.rds")
 }
 
+jm.3b.MCMC <- MCMC.diag(jm = jm.3b, MCMC.params = MCMC.params)
 
 ```
 
 
 
-Check for model fit, convergence, etc
+
+```{r jags_v4b, cache=T}
+parameters.list <- c("r", "f", "mu", 
+                     "mu1", "mu2", 
+                     "b", "sigma_N", "mu_N",
+                     "mu_D1", "mu_D2", 
+                     "Deviance", "loglik",
+                     "p2")
+
+if (!file.exists("RData/jags_out_v4b.rds")){
+  
+  # v4 uses Negative Binomial and Poisson as the likelihood
+  jm.4b <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v4b.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T, 
+               parallel=T)
+  saveRDS(jm.4b, file = "RData/jags_out_v4b.rds")
+  
+} else {
+  
+  jm.4b <- readRDS(file = "RData/jags_out_v4b.rds")
+}
+
+jm.4b.MCMC <- MCMC.diag(jm = jm.4b, MCMC.params = MCMC.params)
+
+```
+
+Extract the MCMC diagnostics and compare models
 
 ```{r}
-Rhat <- unlist(lapply(jm.3b$Rhat, FUN = max))
+LOOIC <- list(M1 = jm.1.MCMC$loo.out$estimates["looic", "Estimate"],
+              M1a = jm.1a.MCMC$loo.out$estimates["looic", "Estimate"],
+              M1b = jm.1b.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2 = jm.2.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2a = jm.2a.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2b = jm.2b.MCMC$loo.out$estimates["looic", "Estimate"],
+              M3 = jm.3.MCMC$loo.out$estimates["looic", "Estimate"],
+              M3a = jm.3a.MCMC$loo.out$estimates["looic", "Estimate"],
+              M3b = jm.3b.MCMC$loo.out$estimates["looic", "Estimate"],
+              M4 = jm.4.MCMC$loo.out$estimates["looic", "Estimate"],
+              M4a = jm.4a.MCMC$loo.out$estimates["looic", "Estimate"],
+              M4b = jm.4b.MCMC$loo.out$estimates["looic", "Estimate"])
 
-Rhat
+
 ```
-
-Extract loglikelihood samples and look at LOOIC and Pareto k statistic
-
-```{r}
-
-loglik <- cbind(jm.3b$sims.list$loglik[,,1], 
-                jm.3b$sims.list$loglik[,,2])
-# loglik.D1 <- jm$sims.list$loglik[, , 1]
-# loglik.D2 <- jm$sims.list$loglik[, , 2]
-
-Reff <- relative_eff(exp(loglik), 
-                     chain_id = rep(1:MCMC.params$n.chains, 
-                                    each = n.per.chain),
-                     cores = 1)
-loo.out <- loo(loglik, r_eff = Reff, cores = 1)
-
-plot(loo.out)
-```
-
-These are not very good for the SS portion. 
 
 
 According to DIC, jm.2a is the best but it had issues with pareto k statistics. The second best was jm.3a
