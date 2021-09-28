@@ -1,0 +1,63 @@
+# model_DcStranding_v2b.jags
+#
+# A jags model to estimate the additional mortality along SS from 
+# observed strandings. 
+#
+# In v2, I use negative binomial rather than Poisson (v1).
+# v2a sets mu1 and mu2 as time-independent
+
+# 2021-09-16
+# Tomo Eguchi
+
+# P1 is the proportion of SS within all SD coast. 
+# mu is the natural and anthropogenic mortality combined
+# mu1 is the additional mortality for SS beach (constant over time)
+# mu2 is the additional mortality for non-SS beaches (constant over time)
+# r = b - mu, where b is the birth rate
+
+model{
+
+	mu_N[1] ~ dnorm(50000, 1/(5000^2))
+	N[1] ~ dlnorm(log(mu_N[1]), 1/(sigma_N^2))
+	D1[1] ~ dnegbin(p1, (mu_D1[1] * p1)/(1-p1))
+
+	# Used N in the following lines (mu_D1 and mu_D2) 
+	# but convergence failures happen.
+	# using mu_N seems to take care of that problem.
+	mu_D1[1] <- P1 * mu_N[1] * (mu + mu1) * f
+	loglik[1, 1] <- logdensity.negbin(D1[1], p1, (mu_D1[1] * p1)/(1-p1))
+
+	D2[1] ~ dnegbin(p2, (mu_D2[1] * p2)/(1-p2))
+	mu_D2[1] <- (1 - P1) * mu_N[1] * (mu + mu2) * f
+	loglik[1, 2] <- logdensity.negbin(D2[1], p2, (mu_D2[1] * p2)/(1-p2))
+
+	for (t in 2:T){
+
+		mu_N[t] <- mu_N[t-1] * exp(r - mu1 - mu2)
+		N[t] ~ dlnorm(log(mu_N[t]), 1/(sigma_N^2))
+
+		D1[t] ~ dnegbin(p1, (mu_D1[t] * p1)/(1-p1))
+		mu_D1[t] <- P1 * mu_N[t] * (mu + mu1) * f
+		loglik[t, 1] <- logdensity.negbin(D1[t], p1, (mu_D1[t] * p1)/(1-p1))
+
+		D2[t] ~ dnegbin(p2, (mu_D2[t] * p2)/(1-p2))
+		mu_D2[t] <- (1 - P1) * mu_N[t] * (mu + mu2) * f
+		loglik[t, 2] <- logdensity.negbin(D2[t], p1, (mu_D2[t] * p2)/(1-p2))
+ 
+	}
+	
+	# priors:
+	mu ~ dunif(0, 0.1)
+	mu1 ~ dunif(0.001, 0.1)  #dbeta(1, 5)T(0.001,0.1)
+	mu2 ~ dunif(0.001, 0.1) #dbeta(1, 5) T(0.001,0.1)
+
+	b <- r + mu
+
+	f ~ dbeta(1, 5)   # less bigger values
+	r ~ dnorm(0, 1/(0.1^2))
+	p1 ~ dbeta(1,1)
+	p2 ~ dbeta(1,1)
+
+	sigma_N ~ dgamma(0.01, 1)
+	#sigma_N <- 1/sqrt(tau_N)
+}
