@@ -46,7 +46,7 @@ model{
 	# priors:
 	mu ~ dunif(0, 0.1)
 	for (k in 1:T){
-		mu1[k] ~ dunif(0.001, 0.10)  #dbeta(1, 5)
+		mu1[k] ~ dunif(0.001, 0.2)  #dbeta(1, 5)
 	}
 	mu2 ~ dunif(0.001, 0.10) #dbeta(1, 5)
 

@@ -541,32 +541,77 @@ sort(unlist(DIC))
 
 According to DIC, M4b is best also.
 
+```{r}
+best.model <- jm.4b
+best.model.MCMC <- jm.4b.MCMC
+
+best.model.MCMC$Rhat
+```
+
+All parameters converged okay.
+
 Take a look at Pareto k statistics.
 
 ```{r}
-plot(jm.4b.MCMC$loo.out)
+plot(best.model.MCMC$loo.out)
 
 ```
 
-It looks okay. NOt great but okay.
+It looks okay. NOt great but okay. The SS portion is worse than the non-SS area.
 
 ```{r}
-jm.4b.MCMC$loo.out
-```
-
-
-```{r}
-mcmc_dens(jm.4b$samples, c("r", "f", "mu",  "b"))
+best.model.MCMC$loo.out
 ```
 
 
 ```{r}
-mcmc_dens(jm.4b$samples, c("mu2", "p2"))
+mcmc_dens(best.model$samples, c("r", "f", "mu",  "b"))
 ```
 
 
 ```{r}
-best.model <- jm.4b
+mcmc_dens(best.model$samples, c("mu2", "p2"))
+```
+
+
+
+```{r}
+mcmc_dens(best.model$samples, 
+          c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
+            "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
+            "mu1[9]"))
+```
+
+These posteriors don't look so good...
+
+
+```{r}
+mcmc_trace(best.model$samples, 
+          c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
+            "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
+            "mu1[9]"))
+```
+
+```{r}
+mcmc_dens(best.model$samples, 
+          c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
+            "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
+            "mu1[18]", "mu1[19]"))
+```
+
+Some posteriors (10, 11,, 12, 15, and 19) seemed to be pushed against the upper limit (0.2). 
+
+```{r}
+mcmc_trace(best.model$samples, 
+           c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
+             "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
+             "mu1[18]", "mu1[19]"))
+```
+
+
+
+```{r}
+
 mean.mu_D1 <- best.model$mean$mu_D1
 low.mu_D1 <- best.model$q2.5$mu_D1
 high.mu_D1 <- best.model$q97.5$mu_D1
@@ -594,6 +639,10 @@ ggplot(data.frame(D1 = jags.data$D1,
 
 ```
 
+Red dots are the observed number of strandings along SS.
+
+
+Observed # strandings vs. estimated mortality along SS. Upper limits are pushed against 0.2. 
 
 ```{r}
 ggplot(data.frame(D1 = jags.data$D1, 
@@ -608,17 +657,19 @@ ggplot(data.frame(D1 = jags.data$D1,
 
 ```
 
-```{r}
-ggplot(data.frame(D2 = jags.data$D2, 
-                  mu2 = mean.mu2, 
-                  mu_D2 = mean.mu_D2, 
-                  low_mu2 = low.mu2,
-                  high_mu2 = high.mu2,
-                  time = seq(2001, 2019))) +
-  geom_point(aes(x = D2, y = mu2), color = "red") +
-  geom_errorbar(aes(x = D2, ymin = low_mu2, ymax = high_mu2))
+The following is not very useful as mu2 is constant over time. 
 
-```
+<!-- ```{r} -->
+<!-- ggplot(data.frame(D2 = jags.data$D2,  -->
+<!--                   mu2 = mean.mu2,  -->
+<!--                   mu_D2 = mean.mu_D2,  -->
+<!--                   low_mu2 = low.mu2, -->
+<!--                   high_mu2 = high.mu2, -->
+<!--                   time = seq(2001, 2019))) + -->
+<!--   geom_point(aes(x = D2, y = mu2), color = "red") + -->
+<!--   geom_errorbar(aes(x = D2, ymin = low_mu2, ymax = high_mu2)) -->
+
+<!-- ``` -->
 
 
 ```{r}
