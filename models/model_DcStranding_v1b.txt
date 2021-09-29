@@ -4,7 +4,7 @@
 # observed strandings. 
 #
 # v1 uses Poisson for SS and nonSS strandings
-# v1b sets mu1 (SS) as time-dependent and mu2 (non-SS) as time-independent
+# v1b sets mu1 (SS) and mu as time-dependent
 
 
 # 2021-09-16
@@ -13,55 +13,54 @@
 # P_SS is the proportion of SS within all SD coast. 
 # mu is the natural and anthropogenic mortality combined
 # mu1 is the additional mortality for SS beach (not constant over time)
-# mu2 is the additional mortality for non-SS beaches (constant over time)
+
 # r = b - mu, where b is the birth rate
 # f is carcass recovery rate
 
 
 model{
 
-	mu_N[1] ~ dnorm(50000, 1/(5000^2))
-	N[1] ~ dlnorm(log(mu_N[1]), 1/(sigma_N^2))
+	mean_N[1] ~ dnorm(50000, 1/(5000^2))
+	N[1] ~ dlnorm(log(mean_N[1]), 1/(sigma_N^2))
 	D1[1] ~ dpois(mu_D1[1])
 
 	# Used N in the following lines (mu_D1 and mu_D2) 
 	# but convergence failures happen.
-	# using mu_N seems to take care of that problem.
-	mu_D1[1] <- P_SS * mu_N[1] * (mu + mu1[1]) * f
+	# using mean_N seems to take care of that problem.
+	mu_D1[1] <- P_SS * mean_N[1] * (mu[1] + mu1[1]) * f
 	loglik[1, 1] <- logdensity.pois(D1[1], mu_D1[1])
 
 	D2[1] ~ dpois(mu_D2[1])
-	mu_D2[1] <- (1 - P_SS) * mu_N[1] * (mu + mu2) * f
+	mu_D2[1] <- (1 - P_SS) * mean_N[1] * mu[1] * f
 	loglik[1, 2] <- logdensity.pois(D2[1], mu_D2[1])
 
 	for (t in 2:T){
 
-		mu_N[t] <- mu_N[t-1] * exp(r - mu1[t] - mu2)
-		N[t] ~ dlnorm(log(mu_N[t]), 1/(sigma_N^2))
+		mean_N[t] <- mean_N[t-1] * exp(r - mu[t] - mu1[t])
+		N[t] ~ dlnorm(log(mean_N[t]), 1/(sigma_N^2))
 
 		D1[t] ~ dpois(mu_D1[t])
-		mu_D1[t] <- P_SS * mu_N[t] * (mu + mu1[t]) * f
+		mu_D1[t] <- P_SS * mean_N[t] * (mu[t] + mu1[t]) * f
 		loglik[t, 1] <- logdensity.pois(D1[t], mu_D1[t])
 
 		D2[t] ~ dpois(mu_D2[t])
-		mu_D2[t] <- (1 - P_SS) * mu_N[t] * (mu + mu2) * f
+		mu_D2[t] <- (1 - P_SS) * mean_N[t] * mu[t] * f
 		loglik[t, 2] <- logdensity.pois(D2[t], mu_D2[t])
  
 	}
 	
 	# priors:
-	mu ~ dunif(0, 0.1)
+
 	for (t in 1:T){
-	  mu1[t] ~ dunif(0.001, 0.15)  #dbeta(1, 5)
+	  mu1[t] ~ dnorm(0, 1)T(0.001,0.999) #dunif(0.001, 0.15)  #dbeta(1, 5)
+	  mu[t] ~ dnorm(0, 1)T(0.001,0.999) #dunif(0, 0.1)
 	}
-	
-	mu2 ~ dunif(0.001, 0.15) #dbeta(1, 5)
 	
 	b <- r + mu
 
 	f ~ dbeta(1, 5)   # less bigger values
 	r ~ dnorm(0, 1/(0.1^2))
 
-	sigma_N ~ dgamma(0.01, 1)
+	sigma_N ~ dgamma(0.5, 0.01)
 	#sigma_N <- 1/sqrt(tau_N)
 }

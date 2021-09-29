@@ -3,57 +3,56 @@
 # A jags model to estimate the additional mortality along SS from 
 # observed strandings. 
 # v4 uses Poisson for SS and NegBin for nonSS
-# v4a sets mu1 and mu2 as time-independent
+# v4a sets mu and mu1 as time-independent
 
 # 2021-09-16
 # Tomo Eguchi
 
 # P_SS is the proportion of SS within all SD coast. 
 # mu is the natural and anthropogenic mortality combined
-# mu1 is the additional mortality for non-SS beaches 
-# mu2 is the additional mortality for SS beach 
+# mu1 is the additional mortality for SS beach
+
 # r = b - mu, where b is the birth rate
 # f is carcass recovery rate
 
 model{
 
-	mu_N[1] ~ dnorm(50000, 1/(5000^2))
-	N[1] ~ dlnorm(log(mu_N[1]), 1/(sigma_N^2))
+	mean_N[1] ~ dnorm(50000, 1/(5000^2))
+	N[1] ~ dlnorm(log(mean_N[1]), 1/(sigma_N^2))
 	
 	D1[1] ~ dpois(mu_D1[1])
-	mu_D1[1] <- P_SS * mu_N[1] * (mu + mu1) * f
+	mu_D1[1] <- P_SS * mean_N[1] * (mu + mu1) * f
 	loglik[1, 1] <- logdensity.pois(D1[1], mu_D1[1])
 
 	D2[1] ~ dnegbin(p2, (mu_D2[1] * p2)/(1-p2))
-	mu_D2[1] <- (1 - P_SS) * mu_N[1] * (mu + mu2) * f
+	mu_D2[1] <- (1 - P_SS) * mean_N[1] * mu * f
 	loglik[1, 2] <- logdensity.negbin(D2[1], p2, (mu_D2[1] * p2)/(1-p2))
 
 	for (t in 2:T){
 
-		mu_N[t] <- mu_N[t-1] * exp(r - mu1 - mu2)
-		N[t] ~ dlnorm(log(mu_N[t]), 1/(sigma_N^2))
+		mean_N[t] <- mean_N[t-1] * exp(r - mu1 - mu)
+		N[t] ~ dlnorm(log(mean_N[t]), 1/(sigma_N^2))
 
 		D1[t] ~ dpois(mu_D1[t])
-		mu_D1[t] <- P_SS * mu_N[t] * (mu + mu1) * f
+		mu_D1[t] <- P_SS * mean_N[t] * (mu + mu1) * f
 		loglik[t, 1] <- logdensity.pois(D1[t], mu_D1[t])
 
 		D2[t] ~ dnegbin(p2, (mu_D2[t] * p2)/(1-p2))
-		mu_D2[t] <- (1 - P_SS) * mu_N[t] * (mu + mu2) * f
+		mu_D2[t] <- (1 - P_SS) * mean_N[t] * mu * f
 		loglik[t, 2] <- logdensity.negbin(D2[t], p2, (mu_D2[t] * p2)/(1-p2))
  
 	}
 	
 	# priors:
-	mu ~ dunif(0, 0.1)
-	mu1 ~ dunif(0.001, 0.10)  #dbeta(1, 5)
-	mu2 ~ dunif(0.001, 0.10) #dbeta(1, 5)
-
+	mu ~ dnorm(0, 1)T(0.001,0.999) #dunif(0, 0.1)
+	mu1 ~ dnorm(0, 1)T(0.001,0.999) #dunif(0.001, 0.10)  #dbeta(1, 5)
+	
 	b <- r + mu
 
 	f ~ dbeta(1, 5)   # less bigger values
 	r ~ dnorm(0, 1/(0.1^2))
 	p2 ~ dbeta(1,1)
 
-	sigma_N ~ dgamma(0.01, 1)
+	sigma_N ~ dgamma(0.5, 0.01)
 	#sigma_N <- 1/sqrt(tau_N)
 }

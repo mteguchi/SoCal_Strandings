@@ -1,0 +1,245 @@
+---
+title: "Capensis stranding model (v4b only)"
+output: html_notebook
+---
+
+Using the results in capensis_stranding_model.Rmd, I focus on one model in this document. The model uses Poisson distribution for the number of stranded long-beaked common dolphins along Silver Strand, whereas the negative binomial distribution is used for all beaches except Silver Strand in San Diego County. The additional mortality rate along SS is time dependent ($\mu_{1,t}$), whereas for other beaches it is constant ($\mu_2$).
+
+
+```{r setup, include=F}
+rm(list=ls())
+library(jagsUI)
+library(tidyverse)
+library(ggplot2)
+library(bayesplot)
+library(loo)
+
+source("SoCal_Strandings_fcns.R")
+# MCMC setup
+MCMC.params <- list(n.samples = 150000,
+                    n.burnin = 125000,
+                    n.thin = 5,
+                    n.chains = 5)
+
+n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+
+# load data on capensis strandings
+capensis.data <- read.csv(file = "data/capensis_strandings.csv")
+
+# coast line lengths
+SD.coast.length <- 150403.3 # meters from cetacean_v1.Rmd (SD.coast.no.MB.SDB.length)
+SS.length <- 22135.74       # meters from cetacean_v1.Rmd (SS.length)
+# from Becker et al. 2020. Habitat based density estimates for cetaceans in CA current ecosystem.
+# 2001,53044
+# 2005,52356
+# 2008,58624
+# 2014,58794
+# 2018,83379
+N <- c(NA, 53044, NA, NA, NA,
+       52356, NA, NA, 58624,
+       rep(NA, 5), 58794, rep(NA, 3), 83379, NA)
+
+D1 <- as.vector(capensis.data$n.SS)
+D1[is.na(D1)] <- 0
+
+D2 <- as.vector(capensis.data$n.noSS)
+
+# remove the first so we can start with known N
+jags.data <- list(D1 = D1[2:length(D1)],
+                  D2 = D2[2:length(D2)],
+                  P_SS = SS.length/SD.coast.length,
+                  T = length(D1) - 1,
+                  N = N[2:length(N)])
+
+parameters.list <- c("r", "f", "mu", 
+                     "mu1", "mu2", 
+                     "b", "sigma_N", "mu_N",
+                     "mu_D1", "mu_D2", 
+                     "Deviance", "loglik",
+                     "p2")
+
+if (!file.exists("RData/DcStranding_out_v4b.rds")){
+  
+  # v4 uses Negative Binomial and Poisson as the likelihood
+  jm.4b <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v4b.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T, 
+               parallel=T)
+  saveRDS(jm.4b, file = "RData/DcStranding_out_v4b.rds")
+  
+} else {
+  
+  jm.4b <- readRDS(file = "RData/DcStranding_out_v4b.rds")
+}
+
+jm.4b.MCMC <- MCMC.diag(jm = jm.4b, MCMC.params = MCMC.params)
+
+```
+
+
+
+```{r}
+best.model <- jm.4b
+best.model.MCMC <- jm.4b.MCMC
+
+best.model.MCMC$Rhat
+```
+
+All parameters converged okay.
+
+Take a look at Pareto k statistics.
+
+```{r}
+plot(best.model.MCMC$loo.out)
+
+```
+
+It looks okay. NOt great but okay. The SS portion is worse than the non-SS area.
+
+```{r}
+best.model.MCMC$loo.out
+```
+
+
+```{r}
+mcmc_dens(best.model$samples, c("r", "f", "mu",  "b"))
+```
+
+
+```{r}
+mcmc_dens(best.model$samples, c("mu2", "p2"))
+```
+
+
+
+```{r}
+mcmc_dens(best.model$samples, 
+          c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
+            "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
+            "mu1[9]"))
+```
+
+These posteriors don't look so good...
+
+
+```{r}
+mcmc_trace(best.model$samples, 
+          c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
+            "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
+            "mu1[9]"))
+```
+
+```{r}
+mcmc_dens(best.model$samples, 
+          c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
+            "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
+            "mu1[18]", "mu1[19]"))
+```
+
+Some posteriors (10, 11,, 12, 15, and 19) seemed to be pushed against the upper limit (0.2). 
+
+```{r}
+mcmc_trace(best.model$samples, 
+           c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
+             "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
+             "mu1[18]", "mu1[19]"))
+```
+
+
+
+```{r}
+
+mean.mu_D1 <- best.model$mean$mu_D1
+low.mu_D1 <- best.model$q2.5$mu_D1
+high.mu_D1 <- best.model$q97.5$mu_D1
+
+mean.mu_D2 <- best.model$mean$mu_D2
+low.mu_D2 <- best.model$q2.5$mu_D2
+high.mu_D2 <- best.model$q97.5$mu_D2
+
+mean.mu1 <- best.model$mean$mu1
+low.mu1 <- best.model$q2.5$mu1
+high.mu1 <- best.model$q97.5$mu1
+
+mean.mu2 <- best.model$mean$mu2
+low.mu2 <- best.model$q2.5$mu2
+high.mu2 <- best.model$q97.5$mu2
+
+ggplot(data.frame(D1 = jags.data$D1, 
+                  mu_D1 = mean.mu_D1,
+                  high.mu_D1 = high.mu_D1,
+                  low.mu_D1 = low.mu_D1,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = time, y = D1), color = "red") +
+  geom_point(aes(x = time, y = mu_D1), color = "blue") +
+  geom_errorbar(aes(x = time, ymin = low.mu_D1, ymax = high.mu_D1))
+
+```
+
+Red dots are the observed number of strandings along SS.
+
+
+Observed # strandings vs. estimated mortality along SS. Upper limits are pushed against 0.2. 
+
+```{r}
+ggplot(data.frame(D1 = jags.data$D1, 
+                  mu1 = mean.mu1, 
+                  mu_D1 = mean.mu_D1, 
+                  low_mu1 = low.mu1,
+                  high_mu1 = high.mu1,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = D1, y = mu1), color = "red") +
+  geom_errorbar(aes(x = D1, ymin = low_mu1, ymax = high_mu1))
+
+
+```
+
+The following is not very useful as mu2 is constant over time. 
+
+<!-- ```{r} -->
+<!-- ggplot(data.frame(D2 = jags.data$D2,  -->
+<!--                   mu2 = mean.mu2,  -->
+<!--                   mu_D2 = mean.mu_D2,  -->
+<!--                   low_mu2 = low.mu2, -->
+<!--                   high_mu2 = high.mu2, -->
+<!--                   time = seq(2001, 2019))) + -->
+<!--   geom_point(aes(x = D2, y = mu2), color = "red") + -->
+<!--   geom_errorbar(aes(x = D2, ymin = low_mu2, ymax = high_mu2)) -->
+
+<!-- ``` -->
+
+
+```{r}
+
+ggplot(data.frame(D2 = jags.data$D2, 
+                  mu_D2 = mean.mu_D2,
+                  high.mu_D2 = high.mu_D2,
+                  low.mu_D2 = low.mu_D2,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = time, y = D2), color = "red") +
+  geom_point(aes(x = time, y = mu_D2), color = "blue") +
+  geom_errorbar(aes(x = time, ymin = low.mu_D2, ymax = high.mu_D2))
+
+```
+
+```{r}
+mean.mu_N <- best.model$mean$mu_N
+low.mu_N <- best.model$q2.5$mu_N
+high.mu_N <- best.model$q97.5$mu_N
+
+ggplot(data.frame(N = jags.data$N, 
+                  mu_N = mean.mu_N, 
+                  low.mu_N = low.mu_N,
+                  high.mu_N = high.mu_N,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = time, y = mu_N)) +
+  geom_errorbar(aes(x = time, ymin = low.mu_N, ymax = high.mu_N)) + 
+  geom_point(aes(x = time, y = N), color = "red", size = 2)
+
+```

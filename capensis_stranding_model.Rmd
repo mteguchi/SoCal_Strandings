@@ -5,25 +5,27 @@ output: html_notebook
 
 This is an attempt to model the number of stranded *Delphinus capensis* (*Dc*) along the San Diego county beaches. The question is if the number of *Dc* strandings per km (stranding rate) along the Silver Strand beach (SS) is greater than other areas in San Diego county. And if so, when did it happen in the last 20 years (2000-2019). Simple calculations of stranding rate revealed that the observed stranding rates of *Dc* along SS are often higher than those from other areas in San Diego county, with some exceptional years in the past (maybe add a figure here). In this analysis, I estimate the additional mortality that attributes to the observed increase in *Dc* strandings along SS.
 
+Abundance estimates were obtained from Becker et al. 2020. Habitat based density estimates for cetaceans in CA current ecosystem. (NOAA Tech Memo)
+
 N0 for capensis: 8,174 CV = 32% for Santa Catalina Basin. Jefferson et al. 2014 (Jefferson TA, Smultea MA, Bacon CE. 2014. Southern California Bight marine mammal density and abundance from aerial surveys, 2008-2013. Journal of Marine Animals and Their Ecology. 7: 14-30.)
 
 The above is not used any longer. I used the abudance estimates from Becker et al. See below.
 
 To simplify the modeling process, I make the following assumptions.
 
-1.  Carcass deposition probability (probability that a carcass is washed up onshore) is the same for SS as other areas in San Diego county. 
+1.  Carcass deposition probability (probability that a carcass is washed up on shore) is the same for SS as other areas in San Diego county. 
 2.  Carcass deposition and detection probabilities (collectively $f$, i.e., probability of a carcass depositing on a beach and being detected and reported to the stranding response team) are the same over time and among all beaches in San Diego county.
 3.  Instantaneous natural mortality rate $\mu_0$ is the same for all *Dc*s in the area and remained constant over time. Additional mortality rates $\mu_{1,t}$ and $\mu_{2,t}$ affect SS and non-SS areas, respectively, and vary over time. Furthermore, I assume that the birth rate ($b$) remains constant ($r = b - \mu$).
 
-The number of strandings along the San Diego county in year t ($D_t$) is divided into two parts. For the SS strandings: 
+The number of strandings along the San Diego county in year t ($D_t$) is divided into two parts. 
 
 $D_t = D_{SS,t} + D_{\bar{SS},t}$
 
-$D_{SS,t} = \int_0^1 N_t P_{SS} (\mu + \mu_1)f dt = N_t P_{SS} (\mu + \mu{1,t}) f$,
+For the SS strandings: 
+
+$D_{SS,t} = \int_0^1 N_t P_{SS} (\mu + \mu_1)f dt = N_t P_{SS} (\mu + \mu_{1,t}) f$,
 
 where $P_{SS}$ is the probability that a *Dc* is along SS. I fix this to the proportion of the length of SS (22.13574 km) relative to the entire coast line of the San Diego county (150.403 km; $P_{SS} = 0.147$).
-
-$N_t = N_{t-1} e^{(r - \mu_{1,t} - \mu_{2,t})}$
 
 For the areas outside of SS, 
 
@@ -31,9 +33,15 @@ $D_{\bar{SS},t} = \int_0^1 N_t (1 - P_{SS}) (\mu + \mu_{2,t}) f dt = N_t (1 - P_
 
 We assume that the observed $D_{SS,t}$ and $D_{\bar{SS},t}$ are distributed as either Poisson or negative binomial distribution with the mean equals to the above equations.
 
-In this model, unknowns are abundance ($N_t$, except $N_{1999}$), mortality rates ($\mu$, $\mu_{1,t}$, and $\mu_{2,t}$), and the birth rate ($b = r + \mu$), which are inferred from the observed numbers of *Dc* carcasses.
+The total abundance ($N_t$) is:
 
-```{r setup}
+$N_t = N_{t-1} e^{(r - \mu_{1,t} - \mu_{2,t})}$
+
+
+In this model, unknowns are abundance ($N_t$, except $N_{2001}$, $N_{2005}$, $N_{2008}$, $N_{2014}$, $N_{2018}$), mortality rates ($\mu$, $\mu_{1,t}$, and $\mu_{2,t}$), and the population growth rate ($r$), which are inferred from the observed numbers of *Dc* carcasses and available abundance estimates.
+
+
+```{r setup, include=F}
 rm(list=ls())
 library(jagsUI)
 library(tidyverse)
@@ -66,12 +74,6 @@ N <- c(NA, 53044, NA, NA, NA,
        52356, NA, NA, 58624,
        rep(NA, 5), 58794, rep(NA, 3), 83379, NA)
 
-
-```
-
-
-
-```{r jags_v1, cache=T}
 D1 <- as.vector(capensis.data$n.SS)
 D1[is.na(D1)] <- 0
 
@@ -84,9 +86,15 @@ jags.data <- list(D1 = D1[2:length(D1)],
                   T = length(D1) - 1,
                   N = N[2:length(N)])
 
+```
+
+
+
+```{r jags_v1, cache=T}
+
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1",  
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik")
 
@@ -110,55 +118,47 @@ if (!file.exists("RData/jags_out_v1.rds")){
   jm.1 <- readRDS(file = "RData/jags_out_v1.rds")
 }
 
-
-
-```
-
-
-Check for model fit, convergence, etc
-
-```{r v1_diag}
 jm.1.MCMC <- MCMC.diag(jm = jm.1, MCMC.params = MCMC.params)
 
 ```
 
-<!-- ```{r jags_v2, cache=T} -->
-<!-- parameters.list <- c("r", "f", "mu",  -->
-<!--                      "mu1", "mu2",  -->
-<!--                      "b", "sigma_N", "mu_N", -->
-<!--                      "mu_D1", "mu_D2",  -->
-<!--                      "Deviance", "loglik", -->
-<!--                      "p1", "p2") -->
+```{r jags_v2, cache=T}
+parameters.list <- c("r", "f", "mu",
+                     "mu1", 
+                     "b", "sigma_N", "mean_N",
+                     "mu_D1", "mu_D2",
+                     "Deviance", "loglik",
+                     "p1", "p2")
 
-<!-- if (!file.exists("RData/jags_out_v2.rds")){ -->
+if (!file.exists("RData/jags_out_v2.rds")){
 
-<!--   # v2 uses Negative Binomial as the likelihood -->
-<!--   jm.2 <- jags(data = jags.data, -->
-<!--                #inits = inits, -->
-<!--                parameters.to.save= parameters.list, -->
-<!--                model.file = "models/model_DcStranding_v2.txt", -->
-<!--                n.chains = MCMC.params$n.chains, -->
-<!--                n.burnin = MCMC.params$n.burnin, -->
-<!--                n.thin = MCMC.params$n.thin, -->
-<!--                n.iter = MCMC.params$n.samples, -->
-<!--                DIC = T,  -->
-<!--                parallel=T) -->
-<!--   saveRDS(jm.2, file = "RData/jags_out_v2.rds") -->
+  # v2 uses Negative Binomial as the likelihood
+  jm.2 <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v2.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T,
+               parallel=T)
+  saveRDS(jm.2, file = "RData/jags_out_v2.rds")
 
-<!-- } else { -->
+} else {
 
-<!--   jm.2 <- readRDS(file = "RData/jags_out_v2.rds") -->
-<!-- } -->
+  jm.2 <- readRDS(file = "RData/jags_out_v2.rds")
+}
 
-<!-- jm.2.MCMC <- MCMC.diag(jm = jm.2, MCMC.params = MCMC.params) -->
-
-<!-- ``` -->
+jm.2.MCMC <- MCMC.diag(jm = jm.2, MCMC.params = MCMC.params) 
+ 
+``` 
 
 
 ```{r jags_v3, cache=T}
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1",  
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik",
                      "p1")
@@ -191,8 +191,8 @@ jm.3.MCMC <- MCMC.diag(jm = jm.3, MCMC.params = MCMC.params)
 
 ```{r jags_v4, cache=T}
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1", 
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik",
                      "p2")
@@ -221,12 +221,10 @@ jm.4.MCMC <- MCMC.diag(jm = jm.4, MCMC.params = MCMC.params)
 
 ```
 
-
-mu1 and mu2 are constant over time in the following models
 ```{r jags_v1a}
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1",  
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik")
 
@@ -257,44 +255,44 @@ jm.1a.MCMC <- MCMC.diag(jm = jm.1a, MCMC.params = MCMC.params)
 
 
 
-<!-- ```{r jags_v2a, cache=T} -->
-<!-- parameters.list <- c("r", "f", "mu",  -->
-<!--                      "mu1", "mu2",  -->
-<!--                      "b", "sigma_N", "mu_N", -->
-<!--                      "mu_D1", "mu_D2",  -->
-<!--                      "Deviance", "loglik", -->
-<!--                      "p1", "p2") -->
+```{r jags_v2a, cache=T}
+parameters.list <- c("r", "f", "mu",
+                     "mu1", 
+                     "b", "sigma_N", "mean_N",
+                     "mu_D1", "mu_D2",
+                     "Deviance", "loglik",
+                     "p1", "p2")
 
-<!-- if (!file.exists("RData/jags_out_v2a.rds")){ -->
+if (!file.exists("RData/jags_out_v2a.rds")){
 
-<!--   # v2 uses Negative Binomial as the likelihood -->
-<!--   jm.2a <- jags(data = jags.data, -->
-<!--                #inits = inits, -->
-<!--                parameters.to.save= parameters.list, -->
-<!--                model.file = "models/model_DcStranding_v2a.txt", -->
-<!--                n.chains = MCMC.params$n.chains, -->
-<!--                n.burnin = MCMC.params$n.burnin, -->
-<!--                n.thin = MCMC.params$n.thin, -->
-<!--                n.iter = MCMC.params$n.samples, -->
-<!--                DIC = T,  -->
-<!--                parallel=T) -->
-<!--   saveRDS(jm.2a, file = "RData/jags_out_v2a.rds") -->
+  # v2 uses Negative Binomial as the likelihood
+  jm.2a <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v2a.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T,
+               parallel=T)
+  saveRDS(jm.2a, file = "RData/jags_out_v2a.rds")
 
-<!-- } else { -->
+} else {
 
-<!--   jm.2a <- readRDS(file = "RData/jags_out_v2a.rds") -->
-<!-- } -->
+  jm.2a <- readRDS(file = "RData/jags_out_v2a.rds")
+}
 
-<!-- jm.2a.MCMC <- MCMC.diag(jm = jm.2a, MCMC.params = MCMC.params) -->
+jm.2a.MCMC <- MCMC.diag(jm = jm.2a, MCMC.params = MCMC.params)
 
-<!-- ``` -->
+```
 
 
 
 ```{r jags_v3a, cache=T}
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1",  
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik",
                      "p1")
@@ -328,8 +326,8 @@ jm.3a.MCMC <- MCMC.diag(jm = jm.3a, MCMC.params = MCMC.params)
 
 ```{r jags_v4a, cache=T}
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1",  
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik",
                      "p2")
@@ -362,8 +360,8 @@ mu1 (SS) is time dependent and mu2 is constant in the following three models:
 
 ```{r jags_v1b}
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1",  
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik")
 
@@ -393,49 +391,49 @@ jm.1b.MCMC <- MCMC.diag(jm = jm.1b, MCMC.params = MCMC.params)
 ```
 
 
-<!-- ```{r jags_v2b, cache=T} -->
-<!-- # v2 and v2b result in error: 4 nodes produced errors; first error: Error in node mu1[18] -->
-<!-- #Slicer stuck at value with infinite density -->
-<!-- # The following line was recommended here: https://courses.engr.illinois.edu/me598dm/sp2020/8.Bayesian.pdf, slide 67 -->
-<!-- rjags::set.factory("base::Slice","sampler",FALSE) -->
+```{r jags_v2b, cache=T}
+# v2 and v2b result in error: 4 nodes produced errors; first error: Error in node mu1[18]
+#Slicer stuck at value with infinite density
+# The following line was recommended here: https://courses.engr.illinois.edu/me598dm/sp2020/8.Bayesian.pdf, slide 67
+#rjags::set.factory("base::Slice","sampler",FALSE)
 
-<!-- parameters.list <- c("r", "f", "mu",  -->
-<!--                      "mu1", "mu2",  -->
-<!--                      "b", "sigma_N", "mu_N", -->
-<!--                      "mu_D1", "mu_D2",  -->
-<!--                      "Deviance", "loglik", -->
-<!--                      "p1", "p2") -->
+parameters.list <- c("r", "f", "mu",
+                     "mu1", 
+                     "b", "sigma_N", "mean_N",
+                     "mu_D1", "mu_D2",
+                     "Deviance", "loglik",
+                     "p1", "p2")
 
-<!-- if (!file.exists("RData/jags_out_v2b.rds")){ -->
+if (!file.exists("RData/jags_out_v2b.rds")){
 
-<!--   # v2 uses Negative Binomial as the likelihood -->
-<!--   jm.2b <- jags(data = jags.data, -->
-<!--                #inits = inits, -->
-<!--                parameters.to.save= parameters.list, -->
-<!--                model.file = "models/model_DcStranding_v2b.txt", -->
-<!--                n.chains = MCMC.params$n.chains, -->
-<!--                n.burnin = MCMC.params$n.burnin, -->
-<!--                n.thin = MCMC.params$n.thin, -->
-<!--                n.iter = MCMC.params$n.samples, -->
-<!--                DIC = T,  -->
-<!--                parallel=T) -->
-<!--   saveRDS(jm.2b, file = "RData/jags_out_v2b.rds") -->
+  # v2 uses Negative Binomial as the likelihood
+  jm.2b <- jags(data = jags.data,
+               #inits = inits,
+               parameters.to.save= parameters.list,
+               model.file = "models/model_DcStranding_v2b.txt",
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T,
+               parallel=T)
+  saveRDS(jm.2b, file = "RData/jags_out_v2b.rds")
 
-<!-- } else { -->
+} else {
 
-<!--   jm.2b <- readRDS(file = "RData/jags_out_v2b.rds") -->
-<!-- } -->
+  jm.2b <- readRDS(file = "RData/jags_out_v2b.rds")
+}
 
-<!-- jm.2b.MCMC <- MCMC.diag(jm = jm.2b, MCMC.params = MCMC.params) -->
+jm.2b.MCMC <- MCMC.diag(jm = jm.2b, MCMC.params = MCMC.params)
 
-<!-- ``` -->
+```
 
 
 
 ```{r jags_v3b, cache=T}
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1",  
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik",
                      "p1")
@@ -469,8 +467,8 @@ jm.3b.MCMC <- MCMC.diag(jm = jm.3b, MCMC.params = MCMC.params)
 
 ```{r jags_v4b, cache=T}
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1",  
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik",
                      "p2")
@@ -505,9 +503,9 @@ Extract the MCMC diagnostics and compare models
 LOOIC <- list(M1 = jm.1.MCMC$loo.out$estimates["looic", "Estimate"],
               M1a = jm.1a.MCMC$loo.out$estimates["looic", "Estimate"],
               M1b = jm.1b.MCMC$loo.out$estimates["looic", "Estimate"],
-              # M2 = jm.2.MCMC$loo.out$estimates["looic", "Estimate"],
-              # M2a = jm.2a.MCMC$loo.out$estimates["looic", "Estimate"],
-              # M2b = jm.2b.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2 = jm.2.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2a = jm.2a.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2b = jm.2b.MCMC$loo.out$estimates["looic", "Estimate"],
               M3 = jm.3.MCMC$loo.out$estimates["looic", "Estimate"],
               M3a = jm.3a.MCMC$loo.out$estimates["looic", "Estimate"],
               M3b = jm.3b.MCMC$loo.out$estimates["looic", "Estimate"],
@@ -519,15 +517,15 @@ LOOIC <- list(M1 = jm.1.MCMC$loo.out$estimates["looic", "Estimate"],
 sort(unlist(LOOIC))
 ```
 
-According to LOOIC, M4b is the best.
+According to LOOIC, M2 is the best.
 
 ```{r}
 DIC <- list(M1 = jm.1.MCMC$DIC,
               M1a = jm.1a.MCMC$DIC,
               M1b = jm.1b.MCMC$DIC,
-              # M2 = jm.2.MCMC$DIC,
-              # M2a = jm.2a.MCMC$DIC,
-              # M2b = jm.2b.MCMC$DIC
+              M2 = jm.2.MCMC$DIC,
+              M2a = jm.2a.MCMC$DIC,
+              M2b = jm.2b.MCMC$DIC,
               M3 = jm.3.MCMC$DIC,
               M3a = jm.3a.MCMC$DIC,
               M3b = jm.3b.MCMC$DIC,
@@ -539,11 +537,11 @@ DIC <- list(M1 = jm.1.MCMC$DIC,
 sort(unlist(DIC))
 ```
 
-According to DIC, M4b is best also.
+According to DIC, M2a is best.
 
 ```{r}
-best.model <- jm.4b
-best.model.MCMC <- jm.4b.MCMC
+best.model <- jm.2
+best.model.MCMC <- jm.2.MCMC
 
 best.model.MCMC$Rhat
 ```
@@ -557,7 +555,7 @@ plot(best.model.MCMC$loo.out)
 
 ```
 
-It looks okay. NOt great but okay. The SS portion is worse than the non-SS area.
+It looks okay. 
 
 ```{r}
 best.model.MCMC$loo.out
@@ -570,7 +568,7 @@ mcmc_dens(best.model$samples, c("r", "f", "mu",  "b"))
 
 
 ```{r}
-mcmc_dens(best.model$samples, c("mu2", "p2"))
+#mcmc_dens(best.model$samples,  "p2")
 ```
 
 
@@ -599,7 +597,6 @@ mcmc_dens(best.model$samples,
             "mu1[18]", "mu1[19]"))
 ```
 
-Some posteriors (10, 11,, 12, 15, and 19) seemed to be pushed against the upper limit (0.2). 
 
 ```{r}
 mcmc_trace(best.model$samples, 
@@ -624,9 +621,6 @@ mean.mu1 <- best.model$mean$mu1
 low.mu1 <- best.model$q2.5$mu1
 high.mu1 <- best.model$q97.5$mu1
 
-mean.mu2 <- best.model$mean$mu2
-low.mu2 <- best.model$q2.5$mu2
-high.mu2 <- best.model$q97.5$mu2
 
 ggplot(data.frame(D1 = jags.data$D1, 
                   mu_D1 = mean.mu_D1,
@@ -657,20 +651,6 @@ ggplot(data.frame(D1 = jags.data$D1,
 
 ```
 
-The following is not very useful as mu2 is constant over time. 
-
-<!-- ```{r} -->
-<!-- ggplot(data.frame(D2 = jags.data$D2,  -->
-<!--                   mu2 = mean.mu2,  -->
-<!--                   mu_D2 = mean.mu_D2,  -->
-<!--                   low_mu2 = low.mu2, -->
-<!--                   high_mu2 = high.mu2, -->
-<!--                   time = seq(2001, 2019))) + -->
-<!--   geom_point(aes(x = D2, y = mu2), color = "red") + -->
-<!--   geom_errorbar(aes(x = D2, ymin = low_mu2, ymax = high_mu2)) -->
-
-<!-- ``` -->
-
 
 ```{r}
 
@@ -686,17 +666,17 @@ ggplot(data.frame(D2 = jags.data$D2,
 ```
 
 ```{r}
-mean.mu_N <- best.model$mean$mu_N
-low.mu_N <- best.model$q2.5$mu_N
-high.mu_N <- best.model$q97.5$mu_N
+mean.mean_N <- best.model$mean$mean_N
+low.mean_N <- best.model$q2.5$mean_N
+high.mean_N <- best.model$q97.5$mean_N
 
 ggplot(data.frame(N = jags.data$N, 
-                  mu_N = mean.mu_N, 
-                  low.mu_N = low.mu_N,
-                  high.mu_N = high.mu_N,
+                  mean_N = mean.mean_N, 
+                  low.mean_N = low.mean_N,
+                  high.mean_N = high.mean_N,
                   time = seq(2001, 2019))) +
-  geom_point(aes(x = time, y = mu_N)) +
-  geom_errorbar(aes(x = time, ymin = low.mu_N, ymax = high.mu_N)) + 
+  geom_point(aes(x = time, y = mean_N)) +
+  geom_errorbar(aes(x = time, ymin = low.mean_N, ymax = high.mean_N)) + 
   geom_point(aes(x = time, y = N), color = "red", size = 2)
 
 ```
