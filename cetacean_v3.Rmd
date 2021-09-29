@@ -17,6 +17,8 @@ library(sf)
 library(ggridges)
 #library(viridis)
 
+save.fig <- F
+
 source("SoCal_Strandings_fcns.R")
 S.lat <- 32.4
 N.lat <- 33.55
@@ -82,7 +84,7 @@ Bring in shapefiles:
 ```{r}
 # get the coast lines
 # Does this work with Windows?
-home.dir <- Sys.getenv("HOMEPATH")
+home.dir <- Sys.getenv("HOME")
 coast.line <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/COASTLINE"),
                       layer = "coast") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
@@ -248,8 +250,9 @@ ggplot(data = stranding.perSp.perKm.perYr.noSS) +
   theme(axis.title = element_blank()) +
   ggtitle("Stranding rate along SD county beach without SS (n/10 km)")
 
-# ggsave(filename = "figures/stranding_perSp_noSS.png",
-#        device = "png", dpi = 600)
+if (save.fig) 
+  ggsave(filename = "figures/stranding_perSp_noSS.png",
+       device = "png", dpi = 600)
 ```
 
 
@@ -263,7 +266,8 @@ ggplot(data = stranding.perSp.perKm.perYr.SS) +
   theme(axis.title = element_blank()) +
   ggtitle("Stranding rate along Silver Strand (n/10 km)")
 
-# ggsave(filename = "figures/stranding_perSp_SS.png",
-#        device = "png", dpi = 600)
+if (save.fig) 
+  ggsave(filename = "figures/stranding_perSp_SS.png",
+       device = "png", dpi = 600)
 ```
 
