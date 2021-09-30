@@ -76,7 +76,12 @@ Bring in shapefiles:
 # get the coast lines
 # Does this work with Windows?
 home.dir <- Sys.getenv("HOME")
-coast.line <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/COASTLINE"),
+if (grep("Documents", home.dir) == 1){
+  home.dir <- strsplit(home.dir, "Documents")[[1]]
+}
+
+coast.line <- st_read(paste0(home.dir, 
+                             "/Documents/Oceans and Maps/San Diego/COASTLINE"),
                       layer = "coast") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
 

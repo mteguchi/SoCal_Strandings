@@ -23,7 +23,7 @@ MCMC.params <- list(n.samples = 150000,
 
 n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
 
-model.name <- "v1c"
+model.name <- "v4e"
 
 # load data on capensis strandings
 capensis.data <- read.csv(file = "data/capensis_strandings.csv")
@@ -46,7 +46,7 @@ D1[is.na(D1)] <- 0
 
 D2 <- as.vector(capensis.data$n.noSS)
 D1_idx <- vector(mode = "numeric", length = length(D1))
-D1_idx[D1>5] <- 1
+D1_idx[D1>3] <- 1
 
 # remove the first so we can start with known N
 jags.data <- list(D1 = D1[2:length(D1)],
@@ -56,34 +56,18 @@ jags.data <- list(D1 = D1[2:length(D1)],
                   N = N[2:length(N)],
                   D1_idx = D1_idx[2:length(N)])
 
-parameters.list <- c("r", "f", "mu", 
+parameters.list <- c("r", "f1", "f2", "mu", 
                      "mu1",  
                      "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik",
                      "p2")
 
-if (!file.exists(paste0("RData/DcStranding_out_", model.name, ".rds"))){
-  
-  # v4 uses Negative Binomial and Poisson as the likelihood
-  jm <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = paste0("models/model_DcStranding_", model.name, ".txt"),
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  saveRDS(jm, file = paste0("RData/DcStranding_out_", model.name, ".rds"))
-  
-} else {
-  
-  jm <- readRDS(file = paste0("RData/DcStranding_out_", model.name, ".rds"))
-}
 
-jm.MCMC <- MCMC.diag(jm = jm, MCMC.params = MCMC.params)
+model.name <- "v4e"
+
+jm <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
 
 ```
 

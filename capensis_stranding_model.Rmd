@@ -211,11 +211,14 @@ jm.4b <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
+The mean number of strandings per year per km of coastline in SD county outside of SS is 0.13176 (Range: 0.05457 - 0.18711). If this rate is applied to the SS coast line (22.13574 km), 22.13574 * 0.13176 =  2.9166 strandings per year. So... anything greater than 3 may be considered higher than average. Using the higher end (0.18711) would result in 4.141818 carcasses. 
+
+I consider > 3 as above average and have an additional mortality term for SS.
 
 ```{r jags_v1c}
 
 D1_idx <- vector(mode = "numeric", length = length(D1))
-D1_idx[D1>5] <- 1
+D1_idx[D1>3] <- 1
 
 jags.data$D1_idx <- D1_idx[2:length(N)]
 model.name <- "v1c"
@@ -254,6 +257,85 @@ jm.4c <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 ```
 
 
+
+```{r jags_v1d}
+
+model.name <- "v1d"
+
+jm.1d <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+```{r jags_v2d, cache=T}
+
+model.name <- "v2d"
+
+jm.2d <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+
+```{r jags_v3d, cache=T}
+model.name <- "v3d"
+
+jm.3d <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+```{r jags_v4d, cache=T}
+
+model.name <- "v4d"
+
+jm.4d <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+
+
+```{r jags_v1e}
+parameters.list <- c("r", "f1", "f2",
+                     "mu1",  "mu",
+                     "b", "sigma_N", "mean_N",
+                     "mu_D1", "mu_D2",
+                     "Deviance", "loglik",
+                     "p1", "p2")
+model.name <- "v1e"
+
+jm.1e <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+```{r jags_v2e, cache=T}
+
+model.name <- "v2e"
+
+jm.2e <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+
+```{r jags_v3e, cache=T}
+model.name <- "v3e"
+
+jm.3e <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+```{r jags_v4e, cache=T}
+
+model.name <- "v4e"
+
+jm.4e <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
 Extract the MCMC diagnostics and compare models
 
 ```{r}
@@ -261,18 +343,26 @@ LOOIC <- list(M1 = jm.1$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M1a = jm.1a$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M1b = jm.1b$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M1c = jm.1c$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M1d = jm.1d$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M1e = jm.1e$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M2 = jm.2$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M2a = jm.2a$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M2b = jm.2b$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M2c = jm.2c$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2d = jm.2d$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2e = jm.2e$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M3 = jm.3$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M3a = jm.3a$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M3b = jm.3b$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M3c = jm.3c$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M3d = jm.3d$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M3e = jm.3e$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M4 = jm.4$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M4a = jm.4a$jm.MCMC$loo.out$estimates["looic", "Estimate"],
               M4b = jm.4b$jm.MCMC$loo.out$estimates["looic", "Estimate"],
-              M4c = jm.4c$jm.MCMC$loo.out$estimates["looic", "Estimate"])
+              M4c = jm.4c$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M4d = jm.4d$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M4e = jm.4e$jm.MCMC$loo.out$estimates["looic", "Estimate"])
 
 
 sort(unlist(LOOIC))
@@ -285,28 +375,36 @@ DIC <- list(M1 = jm.1$jm.MCMC$DIC,
               M1a = jm.1a$jm.MCMC$DIC,
               M1b = jm.1b$jm.MCMC$DIC,
               M1c = jm.1c$jm.MCMC$DIC,
-              M2 = jm.2$jm.MCMC$DIC,
+              M1d = jm.1d$jm.MCMC$DIC,
+            M1e = jm.1e$jm.MCMC$DIC,
+            M2 = jm.2$jm.MCMC$DIC,
               M2a = jm.2a$jm.MCMC$DIC,
               M2b = jm.2b$jm.MCMC$DIC,
               M2c = jm.2c$jm.MCMC$DIC,
-              M3 = jm.3$jm.MCMC$DIC,
+              M2d = jm.2d$jm.MCMC$DIC,
+            M2e = jm.2e$jm.MCMC$DIC,
+            M3 = jm.3$jm.MCMC$DIC,
               M3a = jm.3a$jm.MCMC$DIC,
               M3b = jm.3b$jm.MCMC$DIC,
               M3c = jm.3c$jm.MCMC$DIC,
+            M3d = jm.3d$jm.MCMC$DIC,
+            M33 = jm.3e$jm.MCMC$DIC,
               M4 = jm.4$jm.MCMC$DIC,
               M4a = jm.4a$jm.MCMC$DIC,
             M4b = jm.4b$jm.MCMC$DIC,
-            M4c = jm.4c$jm.MCMC$DIC)
+            M4c = jm.4c$jm.MCMC$DIC,
+            M4d = jm.4d$jm.MCMC$DIC,
+            M4e = jm.4e$jm.MCMC$DIC)
 
 
 sort(unlist(DIC))
 ```
 
-According to DIC, M4c is best.
+According to DIC, M4e is best. Looked at posterior statisitcs and f1 and f2 are identical... so, I'll go with M4c
 
 ```{r}
 best.model <- jm.4c
-best.model.MCMC <- jm.4c$jm.MCMC
+best.model.MCMC <- jm.4e$jm.MCMC
 
 best.model.MCMC$Rhat
 ```
@@ -328,14 +426,26 @@ best.model.MCMC$loo.out
 
 
 ```{r}
-mcmc_dens(best.model$jm.out$samples, c("r", "f", "mu",  "b", "mu1",  "p2"))
+mcmc_dens(best.model$jm.out$samples, c("r", "f1", "f2", "mu",  "b", "mu1",  "p2"))
+```
+```{r}
+best.model$jm.out$summary["f1",]
+
+```
+
+```{r}
+best.model$jm.out$summary["f2",]
+
 ```
 
 
 ```{r}
-#mcmc_dens(best.model$samples,  "p2")
+best.model$jm.out$summary["mu",]
 ```
 
+```{r}
+best.model$jm.out$summary["mu1",]
+```
 
 
 ```{r}

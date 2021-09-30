@@ -1,0 +1,258 @@
+---
+title: "Modeling Outline"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::word_document2: default
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(bayesplot)
+library(loo)
+library(tidyverse)
+
+MCMC.params <- list(n.samples = 100000,
+                    n.burnin = 75000,
+                    n.thin = 5,
+                    n.chains = 5)
+
+n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+
+# load data on capensis strandings
+capensis.data <- read.csv(file = "data/capensis_strandings.csv")
+
+# coast line lengths
+SD.coast.length <- 150403.3 # meters from cetacean_v1.Rmd (SD.coast.no.MB.SDB.length)
+SS.length <- 22135.74       # meters from cetacean_v1.Rmd (SS.length)
+# from Becker et al. 2020. Habitat based density estimates for cetaceans in CA current ecosystem.
+# 2001,53044
+# 2005,52356
+# 2008,58624
+# 2014,58794
+# 2018,83379
+N <- c(NA, 53044, NA, NA, NA,
+       52356, NA, NA, 58624,
+       rep(NA, 5), 58794, rep(NA, 3), 83379, NA)
+
+D1 <- as.vector(capensis.data$n.SS)
+D1[is.na(D1)] <- 0
+
+D2 <- as.vector(capensis.data$n.noSS)
+
+# remove the first so we can start with known N
+jags.data <- list(D1 = D1[2:length(D1)],
+                  D2 = D2[2:length(D2)],
+                  P_SS = SS.length/SD.coast.length,
+                  T = length(D1) - 1,
+                  N = N[2:length(N)])
+
+parameters.list <- c("r", "f", "mu",
+                     "mu1", 
+                     "b", "sigma_N", "mean_N",
+                     "mu_D1", "mu_D2",
+                     "Deviance", "loglik",
+                     "p1", "p2")
+```
+
+## Background and objective: {-}
+It has been reported that the stranding rate of cetaceans seems to be higher along Silver Strand (SS) than the rest of the SD county beaches (Figure \@ref(fig:plot-StrandingRate)). Because the vast majority of strandings are long-beaked common dolphins, I focused on modeling this species. 
+
+The objective was to model stranding of long-beaked common dolphins along San Diego County to estimate additional mortality along Silver Strand.
+
+
+```{r plot-StrandingRate, echo=FALSE, cache=TRUE, warning = FALSE, message = FALSE, fig.cap="Stranding rate of long-beaked common dolphins, as computed as the number of strandings per km of coast line along the coast of San Diego county from 1990 to 2019. 'All' indicates the entire coast line, 'no SS' indicates excluding Silver Strand, and 'SS only' indicates Silver Strand only."}
+knitr::include_graphics(paste0("figures/strandingPerKm_capensis.png"))
+
+```
+
+
+## Data: {-}
+1. The annual number of reported carcasses of long-beaked common dolphins along San Diego County (split into along Silver Strand (SS) and the rest of the county (non SS))
+2. Abundance estimates of long-beaked common dolphins from Becker et al. (2020; Habitat based density estimates for cetaceans in CA Current Ecosystem based on 1991-2018 survey data).
+3. Lengths of SS and non-SS coastlines
+
+## Notation: {-}
+$N_t$ = the abundance of long-beaked common dolphins in year t
+
+$\mu_x$ = the mean of parameter x, e.g., $\mu_{N_1}$ is the mean of abundance at time 1
+
+$D_{1,t}$ = the observed number of carcasses of long-beaked common dolphins along SS in year t
+
+$D_{2,t}$ = the observed number of carcasses of long-beaked common dolphins along non-SS in year t
+
+$P_{SS}$ = the proportion of the SS beach in the entire coast line of San Diego County (~0.147)
+
+$m$ = the mortality of long-beaked common dolphins, excluding the additional mortality along SS
+
+$m_1$ = the additional mortality of long-beaked common dolphins along SS
+
+$f$ = the probability of recovering a carcass of long-beaked common dolphin
+
+## Assumptions: {-}
+
+1.  Carcass deposition probability (probability that a carcass is washed up on shore) is the same for SS as other areas in San Diego county.  
+2.  Carcass deposition and detection probabilities (collectively $f$, i.e., probability of a carcass depositing on a beach and being detected and reported to the stranding response team) are the same over time and among all beaches in San Diego county. I looked at a model that contained two carcass deposition probabilities (one for SS and another for non-SS) but the posteriors were pretty much identical.) 
+3.  Instantaneous natural mortality rate $m$ is the same for all long-beaked common dolphins in the area. Additional mortality rates $m_{1,t}$ affect SS. 
+
+## Model: {-}
+
+I looked at various combinations of Poisson and negative binomial distributions for the annual observed numbers of carcasses in the following models. The best model included Poisson for SS and negative binomial for non-SS carcasses. I also looked at various combinations of time-dependence and location-specific parameters ($m$, $m_1$, and $f$). A total of 24 models were compared and the following model was considered best according to LOOIC. 
+
+### Abundance: {-}
+The total abundance ($N_t$) is:
+
+$N_t \sim logN(ln(\mu_{N_t}), \sigma_N)$, where
+
+$\mu_{N_t} = \mu_{N_{t-1}} e^{(r - m - m_1)}$, where $m_1 = 0$ if no evidence of additional deaths.
+
+
+### Stranding along SS: {-}
+
+$D_{1,t} \sim POI(\mu_{D_{1,t}})$
+
+$\mu_{D_{1,t}} = \int_0^1 \mu_{N_t} P_{SS} (m + m_1)f dt = \mu_{N_{t}} P_{SS} (m + m_1) f$, where $m_1 = 0$ if no evidence of additional deaths.
+
+### Stranding along non-SS: {-}
+
+$D_{2,t} \sim NegBin(p_2, (p_2 \mu_{D_{2,t}})/(1 - p_2))$
+
+$\mu_{D_{2,t}} = \mu_{N_{t}} (1 - P_{SS}) (m + m_1) f$, where $m_1 = 0$ if no evidence of additional deaths.
+
+## JAGS code: {-}
+
+model{
+
+	mean_N[1] ~ dnorm(50000, 1/(5000^2))
+	N[1] ~ dlnorm(log(mean_N[1]), 1/(sigma_N^2))
+	
+	D1[1] ~ dpois(mu_D1[1])
+	mu_D1[1] <- ifelse(D1_idx[1] == 1, 
+						P_SS * mean_N[1] * (mu + mu1) * f,
+						P_SS * mean_N[1] * mu * f)
+	loglik[1, 1] <- logdensity.pois(D1[1], mu_D1[1])
+
+	D2[1] ~ dnegbin(p2, (mu_D2[1] * p2)/(1-p2))
+	mu_D2[1] <- (1 - P_SS) * mean_N[1] * mu * f
+	loglik[1, 2] <- logdensity.negbin(D2[1], p2, (mu_D2[1] * p2)/(1-p2))
+
+	for (t in 2:T){
+
+		mean_N[t] <- ifelse(D1_idx[t] == 1,
+							mean_N[t-1] * exp(r - mu - mu1),
+							mean_N[t-1] * exp(r - mu))
+		N[t] ~ dlnorm(log(mean_N[t]), 1/(sigma_N^2))
+
+		D1[t] ~ dpois(mu_D1[t])
+		mu_D1[t] <- ifelse(D1_idx[t] == 1, 
+						P_SS * mean_N[t] * (mu + mu1) * f,
+						P_SS * mean_N[t] * mu * f)
+		loglik[t, 1] <- logdensity.pois(D1[t], mu_D1[t])
+
+		D2[t] ~ dnegbin(p2, (mu_D2[t] * p2)/(1-p2))
+		mu_D2[t] <- (1 - P_SS) * mean_N[t] * mu * f
+		loglik[t, 2] <- logdensity.negbin(D2[t], p2, (mu_D2[t] * p2)/(1-p2))
+ 
+	}
+	
+	# priors:
+	mu ~ dnorm(0, 1)T(0.001,0.999) #dunif(0, 0.1)
+	mu1 ~ dnorm(0, 1)T(0.001,0.999) #dunif(0.001, 0.10)  #dbeta(1, 5)
+		
+	b <- r + mu
+
+	f ~ dbeta(1, 5)   # less bigger values
+	r ~ dnorm(0, 1/(0.1^2))
+	p2 ~ dbeta(1,1)
+	sigma_N ~ dgamma(0.5, 0.01)
+
+}
+
+## Results {-}
+
+```{r getResults, echo=FALSE}
+model.name <- "v4c"
+jm <- readRDS(file = paste0("RData/jags_out_", model.name, ".rds"))
+```
+
+The MCMC for the model converged for all parameters (Rhat < 1.02) and Pareto-k statistics showed the model fit well to the data.
+
+Mean mortality rate of long-beaked common dolphins was estimated to be `r signif(jm$mean$mu, 2)` (95%CI = `r signif(jm$q2.5$mu, 3)` - `r signif(jm$q97.5$mu, 3)`) and the additional mortality along SS to be `r signif(jm$mean$mu1, 2)` (95%CI = `r signif(jm$q2.5$mu1, 3)` - `r signif(jm$q97.5$mu1, 3)`; Figure \@ref(fig:plot-posteriors)). These seem to be way too low... but if the difference between m and m1 are believable, this is also evidence that mortality is higher along SS in some years than others. I guess we didn't need this much analysis to show the obvious...(?)
+
+The mean carcass recovery probability was `r signif(jm$mean$f, 3)` (95% CI = `r signif(jm$q2.5$f, 3)` - `r signif(jm$q97.5$f, 3)`). This may be somewhat reasonable considering the carcass recovery probability of bottlenose dolphins along the same coast line was estimated to be approximately 0.25. 
+
+
+
+```{r posterior1, echo=FALSE, message=FALSE, warning=FALSE}
+p1 <- mcmc_dens(jm$samples, c("r", "f", "mu",  "mu1"))
+ggsave(filename = paste0("figures/posteriors_", model.name, ".png"),
+       plot = p1, device = "png", dpi = 600)
+```
+
+
+```{r plot-posteriors, echo=FALSE, cache=TRUE, warning = FALSE, message = FALSE, fig.cap="Posterior distributions of parameters r (population growth rate), f (carcass recovery probability), mu (mortality rate), mu1 (additional mortality rate along SS). "}
+knitr::include_graphics(paste0("figures/posteriors_", model.name, ".png"))
+```
+
+```{r mortality, echo=F, message=FALSE, warning=FALSE}
+
+mean.mu_D1 <- jm$mean$mu_D1
+low.mu_D1 <- jm$q2.5$mu_D1
+high.mu_D1 <- jm$q97.5$mu_D1
+
+mean.mu_D2 <- jm$mean$mu_D2
+low.mu_D2 <- jm$q2.5$mu_D2
+high.mu_D2 <- jm$q97.5$mu_D2
+
+mean.mu1 <- jm$mean$mu1
+low.mu1 <- jm$q2.5$mu1
+high.mu1 <- jm$q97.5$mu1
+
+
+p2 <- ggplot(data.frame(D1 = jags.data$D1, 
+                  mu_D1 = mean.mu_D1,
+                  high.mu_D1 = high.mu_D1,
+                  low.mu_D1 = low.mu_D1,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = time, y = D1), color = "red") +
+  geom_point(aes(x = time, y = mu_D1), color = "blue") +
+  geom_errorbar(aes(x = time, ymin = low.mu_D1, ymax = high.mu_D1),
+                color = "blue") +
+  xlab("")+ ylab(expression(mu[D[1]])) #+
+  #ggtitle("Observed (red) and estimated mean (blue; 95%CI) number of carcases along SS")
+ggsave(filename = paste0("figures/D1_", model.name, ".png"),
+       plot = p2, device = "png", dpi = 600)
+
+```
+
+```{r plot-D1, echo=FALSE, cache=TRUE, warning = FALSE, message = FALSE, fig.cap="Mean and 95% CI of Poisson distribution, which was used to model the number of annual carcasses of long-beaked common dolphins along SS. Red dots indicate the observed numbers. "}
+knitr::include_graphics(paste0("figures/D1_", model.name, ".png"))
+```
+
+
+```{r plot_Nhats, echo=FALSE, message=FALSE, warning=FALSE}
+mean.mean_N <- jm$mean$mean_N
+low.mean_N <- jm$q2.5$mean_N
+high.mean_N <- jm$q97.5$mean_N
+
+p3 <- ggplot(data.frame(N = jags.data$N, 
+                  mean_N = mean.mean_N, 
+                  low.mean_N = low.mean_N,
+                  high.mean_N = high.mean_N,
+                  time = seq(2001, 2019))) +
+  geom_point(aes(x = time, y = mean_N)) +
+  geom_errorbar(aes(x = time, ymin = low.mean_N, ymax = high.mean_N)) + 
+  geom_point(aes(x = time, y = N), color = "red", size = 2) +
+  #ggtitle("Estimated mean abundance (95% CI) and from Becker et al. (2020, red)") + 
+  xlab("") + 
+  ylab(expression(mu[N]))
+
+ggsave(filename = paste0("figures/Nhats_", model.name, ".png"),
+       plot = p3, device = "png", dpi = 600)
+```
+
+
+```{r plot-Nhats, echo=FALSE, cache=TRUE, warning = FALSE, message = FALSE, fig.cap="Mean and 95% CI of the annual abundance of long-beaked common dolphins. Red dots indicate the estimated abundance from Becker et al. 2020."}
+knitr::include_graphics(paste0("figures/Nhats_", model.name, ".png"))
+```
