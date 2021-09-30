@@ -34,7 +34,7 @@ model{
 
 		D1[t] ~ dnegbin(p1, (mu_D1[t] * p1)/(1-p1))
 		mu_D1[t] <- P_SS * mean_N[t] * (mu + mu1[t]) * f
-		loglik[t, 1] <- logdensity.negbin(D1[t], p1, (mu_D1[1] * p1)/(1-p1))
+		loglik[t, 1] <- logdensity.negbin(D1[t], p1, (mu_D1[t] * p1)/(1-p1))
 
 		D2[t] ~ dpois(mu_D2[t])
 		mu_D2[t] <- (1 - P_SS) * mean_N[t] * mu * f

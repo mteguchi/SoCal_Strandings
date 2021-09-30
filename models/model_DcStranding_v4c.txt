@@ -1,0 +1,68 @@
+# model_DcStranding_v4.txt
+#
+# A jags model to estimate the additional mortality along SS from 
+# observed strandings. 
+# v4 uses Poisson for SS and NegBin for nonSS
+# v4c uses just one mu1 that either present or absent.
+
+# 2021-09-16
+# Tomo Eguchi
+
+# P_SS is the proportion of SS within all SD coast. 
+# mu is the natural and anthropogenic mortality combined
+# mu1 is the additional mortality for SS beach 
+
+# r = b - mu, where b is the birth rate
+# f is carcass recovery rate
+
+model{
+
+	mean_N[1] ~ dnorm(50000, 1/(5000^2))
+	N[1] ~ dlnorm(log(mean_N[1]), 1/(sigma_N^2))
+	
+	D1[1] ~ dpois(mu_D1[1])
+	mu_D1[1] <- ifelse(D1_idx[1] == 1, 
+						P_SS * mean_N[1] * (mu + mu1) * f,
+						P_SS * mean_N[1] * mu * f)
+
+	loglik[1, 1] <- logdensity.pois(D1[1], mu_D1[1])
+
+	D2[1] ~ dnegbin(p2, (mu_D2[1] * p2)/(1-p2))
+	mu_D2[1] <- (1 - P_SS) * mean_N[1] * mu * f
+	loglik[1, 2] <- logdensity.negbin(D2[1], p2, (mu_D2[1] * p2)/(1-p2))
+
+	for (t in 2:T){
+
+		mean_N[t] <- ifelse(D1_idx[t] == 1,
+							mean_N[t-1] * exp(r - mu - mu1),
+							mean_N[t-1] * exp(r - mu))
+
+		N[t] ~ dlnorm(log(mean_N[t]), 1/(sigma_N^2))
+
+		D1[t] ~ dpois(mu_D1[t])
+		mu_D1[t] <- ifelse(D1_idx[t] == 1, 
+						P_SS * mean_N[t] * (mu + mu1) * f,
+						P_SS * mean_N[t] * mu * f)
+
+		loglik[t, 1] <- logdensity.pois(D1[t], mu_D1[t])
+
+		D2[t] ~ dnegbin(p2, (mu_D2[t] * p2)/(1-p2))
+		mu_D2[t] <- (1 - P_SS) * mean_N[t] * mu * f
+		loglik[t, 2] <- logdensity.negbin(D2[t], p2, (mu_D2[t] * p2)/(1-p2))
+ 
+	}
+	
+	# priors:
+	mu ~ dnorm(0, 1)T(0.001,0.999) #dunif(0, 0.1)
+	mu1 ~ dnorm(0, 1)T(0.001,0.999) #dunif(0.001, 0.10)  #dbeta(1, 5)
+		
+
+	b <- r + mu
+
+	f ~ dbeta(1, 5)   # less bigger values
+	r ~ dnorm(0, 1/(0.1^2))
+	p2 ~ dbeta(1,1)
+
+	sigma_N ~ dgamma(0.5, 0.01)
+	#sigma_N <- 1/sqrt(tau_N)
+}

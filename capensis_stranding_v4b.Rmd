@@ -1,9 +1,9 @@
 ---
-title: "Capensis stranding model (v4b only)"
+title: "Capensis stranding model (one model only)"
 output: html_notebook
 ---
 
-Using the results in capensis_stranding_model.Rmd, I focus on one model in this document. The model uses Poisson distribution for the number of stranded long-beaked common dolphins along Silver Strand, whereas the negative binomial distribution is used for all beaches except Silver Strand in San Diego County. The additional mortality rate along SS is time dependent ($\mu_{1,t}$), whereas for other beaches it is constant ($\mu_2$).
+Using the results in capensis_stranding_model.Rmd, I focus on one model in this document. It can be any model. When using v4b, the model uses Poisson distribution for the number of stranded long-beaked common dolphins along Silver Strand, whereas the negative binomial distribution is used for all beaches except Silver Strand in San Diego County. The additional mortality rate along SS is time dependent ($\mu_{1,t}$), whereas for other beaches it is constant ($\mu_2$).
 
 
 ```{r setup, include=F}
@@ -22,6 +22,8 @@ MCMC.params <- list(n.samples = 150000,
                     n.chains = 5)
 
 n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+
+model.name <- "v1c"
 
 # load data on capensis strandings
 capensis.data <- read.csv(file = "data/capensis_strandings.csv")
@@ -43,50 +45,53 @@ D1 <- as.vector(capensis.data$n.SS)
 D1[is.na(D1)] <- 0
 
 D2 <- as.vector(capensis.data$n.noSS)
+D1_idx <- vector(mode = "numeric", length = length(D1))
+D1_idx[D1>5] <- 1
 
 # remove the first so we can start with known N
 jags.data <- list(D1 = D1[2:length(D1)],
                   D2 = D2[2:length(D2)],
                   P_SS = SS.length/SD.coast.length,
                   T = length(D1) - 1,
-                  N = N[2:length(N)])
+                  N = N[2:length(N)],
+                  D1_idx = D1_idx[2:length(N)])
 
 parameters.list <- c("r", "f", "mu", 
-                     "mu1", "mu2", 
-                     "b", "sigma_N", "mu_N",
+                     "mu1",  
+                     "b", "sigma_N", "mean_N",
                      "mu_D1", "mu_D2", 
                      "Deviance", "loglik",
                      "p2")
 
-if (!file.exists("RData/DcStranding_out_v4b.rds")){
+if (!file.exists(paste0("RData/DcStranding_out_", model.name, ".rds"))){
   
   # v4 uses Negative Binomial and Poisson as the likelihood
-  jm.4b <- jags(data = jags.data,
+  jm <- jags(data = jags.data,
                #inits = inits,
                parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v4b.txt",
+               model.file = paste0("models/model_DcStranding_", model.name, ".txt"),
                n.chains = MCMC.params$n.chains,
                n.burnin = MCMC.params$n.burnin,
                n.thin = MCMC.params$n.thin,
                n.iter = MCMC.params$n.samples,
                DIC = T, 
                parallel=T)
-  saveRDS(jm.4b, file = "RData/DcStranding_out_v4b.rds")
+  saveRDS(jm, file = paste0("RData/DcStranding_out_", model.name, ".rds"))
   
 } else {
   
-  jm.4b <- readRDS(file = "RData/DcStranding_out_v4b.rds")
+  jm <- readRDS(file = paste0("RData/DcStranding_out_", model.name, ".rds"))
 }
 
-jm.4b.MCMC <- MCMC.diag(jm = jm.4b, MCMC.params = MCMC.params)
+jm.MCMC <- MCMC.diag(jm = jm, MCMC.params = MCMC.params)
 
 ```
 
 
 
 ```{r}
-best.model <- jm.4b
-best.model.MCMC <- jm.4b.MCMC
+best.model <- jm
+best.model.MCMC <- jm.MCMC
 
 best.model.MCMC$Rhat
 ```
@@ -108,21 +113,21 @@ best.model.MCMC$loo.out
 
 
 ```{r}
-mcmc_dens(best.model$samples, c("r", "f", "mu",  "b"))
+mcmc_dens(best.model$samples, c("r", "f", "mu",  "b", "mu1"))
 ```
 
 
 ```{r}
-mcmc_dens(best.model$samples, c("mu2", "p2"))
+#mcmc_dens(best.model$samples, c("mu1", "p2"))
 ```
 
 
 
 ```{r}
-mcmc_dens(best.model$samples, 
-          c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
-            "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
-            "mu1[9]"))
+# mcmc_dens(best.model$samples, 
+#           c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
+#             "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
+#             "mu1[9]"))
 ```
 
 These posteriors don't look so good...
@@ -229,17 +234,17 @@ ggplot(data.frame(D2 = jags.data$D2,
 ```
 
 ```{r}
-mean.mu_N <- best.model$mean$mu_N
-low.mu_N <- best.model$q2.5$mu_N
-high.mu_N <- best.model$q97.5$mu_N
+mean.mean_N <- best.model$mean$mean_N
+low.mean_N <- best.model$q2.5$mean_N
+high.mean_N <- best.model$q97.5$mean_N
 
 ggplot(data.frame(N = jags.data$N, 
-                  mu_N = mean.mu_N, 
-                  low.mu_N = low.mu_N,
-                  high.mu_N = high.mu_N,
+                  mu_N = mean.mean_N, 
+                  low.mu_N = low.mean_N,
+                  high.mu_N = high.mean_N,
                   time = seq(2001, 2019))) +
-  geom_point(aes(x = time, y = mu_N)) +
-  geom_errorbar(aes(x = time, ymin = low.mu_N, ymax = high.mu_N)) + 
+  geom_point(aes(x = time, y = mean_N)) +
+  geom_errorbar(aes(x = time, ymin = low.mean_N, ymax = high.mean_N)) + 
   geom_point(aes(x = time, y = N), color = "red", size = 2)
 
 ```

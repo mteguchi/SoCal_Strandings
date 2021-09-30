@@ -86,307 +86,92 @@ jags.data <- list(D1 = D1[2:length(D1)],
                   T = length(D1) - 1,
                   N = N[2:length(N)])
 
+parameters.list <- c("r", "f", "mu",
+                     "mu1", 
+                     "b", "sigma_N", "mean_N",
+                     "mu_D1", "mu_D2",
+                     "Deviance", "loglik",
+                     "p1", "p2")
+
 ```
 
 
 
 ```{r jags_v1, cache=T}
 
-parameters.list <- c("r", "f", "mu", 
-                     "mu1",  
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2", 
-                     "Deviance", "loglik")
+model.name <- "v1"
 
-if (!file.exists("RData/jags_out_v1.rds")){
-  # v1 uses Poisson as the likelihood
-  jm.1 <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v1.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  
-  saveRDS(jm.1, file = "RData/jags_out_v1.rds")
-  
-} else {
-  
-  jm.1 <- readRDS(file = "RData/jags_out_v1.rds")
-}
-
-jm.1.MCMC <- MCMC.diag(jm = jm.1, MCMC.params = MCMC.params)
+jm.1 <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
 ```{r jags_v2, cache=T}
-parameters.list <- c("r", "f", "mu",
-                     "mu1", 
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2",
-                     "Deviance", "loglik",
-                     "p1", "p2")
 
-if (!file.exists("RData/jags_out_v2.rds")){
+model.name <- "v2"
 
-  # v2 uses Negative Binomial as the likelihood
-  jm.2 <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v2.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T,
-               parallel=T)
-  saveRDS(jm.2, file = "RData/jags_out_v2.rds")
+jm.2 <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
-} else {
-
-  jm.2 <- readRDS(file = "RData/jags_out_v2.rds")
-}
-
-jm.2.MCMC <- MCMC.diag(jm = jm.2, MCMC.params = MCMC.params) 
- 
 ``` 
 
 
 ```{r jags_v3, cache=T}
-parameters.list <- c("r", "f", "mu", 
-                     "mu1",  
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2", 
-                     "Deviance", "loglik",
-                     "p1")
 
-if (!file.exists("RData/jags_out_v3.rds")){
-  
-  # v3 uses Negative Binomial and Poisson as the likelihood
-  jm.3 <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v3.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  saveRDS(jm.3, file = "RData/jags_out_v3.rds")
-  
-} else {
-  
-  jm.3 <- readRDS(file = "RData/jags_out_v3.rds")
-}
+model.name <- "v3"
 
-jm.3.MCMC <- MCMC.diag(jm = jm.3, MCMC.params = MCMC.params)
+jm.3 <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
 
 
 ```{r jags_v4, cache=T}
-parameters.list <- c("r", "f", "mu", 
-                     "mu1", 
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2", 
-                     "Deviance", "loglik",
-                     "p2")
 
-if (!file.exists("RData/jags_out_v4.rds")){
-  
-  # v4 uses Negative Binomial and Poisson as the likelihood
-  jm.4 <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v4.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  saveRDS(jm.4, file = "RData/jags_out_v4.rds")
-  
-} else {
-  
-  jm.4 <- readRDS(file = "RData/jags_out_v4.rds")
-}
+model.name <- "v4"
 
-jm.4.MCMC <- MCMC.diag(jm = jm.4, MCMC.params = MCMC.params)
+jm.4 <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
 ```{r jags_v1a}
-parameters.list <- c("r", "f", "mu", 
-                     "mu1",  
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2", 
-                     "Deviance", "loglik")
+model.name <- "v1a"
 
-if (!file.exists("RData/jags_out_v1a.rds")){
-  # v1 uses Poisson as the likelihood
-  jm.1a <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v1a.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  
-  saveRDS(jm.1a, file = "RData/jags_out_v1a.rds")
-  
-} else {
-  
-  jm.1a <- readRDS(file = "RData/jags_out_v1a.rds")
-}
-
-
-jm.1a.MCMC <- MCMC.diag(jm = jm.1a, MCMC.params = MCMC.params)
+jm.1a <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
 
 
 ```{r jags_v2a, cache=T}
-parameters.list <- c("r", "f", "mu",
-                     "mu1", 
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2",
-                     "Deviance", "loglik",
-                     "p1", "p2")
+model.name <- "v2a"
 
-if (!file.exists("RData/jags_out_v2a.rds")){
-
-  # v2 uses Negative Binomial as the likelihood
-  jm.2a <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v2a.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T,
-               parallel=T)
-  saveRDS(jm.2a, file = "RData/jags_out_v2a.rds")
-
-} else {
-
-  jm.2a <- readRDS(file = "RData/jags_out_v2a.rds")
-}
-
-jm.2a.MCMC <- MCMC.diag(jm = jm.2a, MCMC.params = MCMC.params)
+jm.2a <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
 
 
 ```{r jags_v3a, cache=T}
-parameters.list <- c("r", "f", "mu", 
-                     "mu1",  
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2", 
-                     "Deviance", "loglik",
-                     "p1")
+model.name <- "v3a"
 
-if (!file.exists("RData/jags_out_v3a.rds")){
-  
-  # v3 uses Negative Binomial and Poisson as the likelihood
-  jm.3a <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v3a.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  saveRDS(jm.3a, file = "RData/jags_out_v3a.rds")
-  
-} else {
-  
-  jm.3a <- readRDS(file = "RData/jags_out_v3a.rds")
-}
-
-jm.3a.MCMC <- MCMC.diag(jm = jm.3a, MCMC.params = MCMC.params)
+jm.3a <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
 
 
-
 ```{r jags_v4a, cache=T}
-parameters.list <- c("r", "f", "mu", 
-                     "mu1",  
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2", 
-                     "Deviance", "loglik",
-                     "p2")
+model.name <- "v4a"
 
-if (!file.exists("RData/jags_out_v4a.rds")){
-  
-  # v4 uses Negative Binomial and Poisson as the likelihood
-  jm.4a <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v4a.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  saveRDS(jm.4a, file = "RData/jags_out_v4a.rds")
-  
-} else {
-  
-  jm.4a <- readRDS(file = "RData/jags_out_v4a.rds")
-}
-
-jm.4a.MCMC <- MCMC.diag(jm = jm.4a, MCMC.params = MCMC.params)
+jm.4a <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
 mu1 (SS) is time dependent and mu2 is constant in the following three models:
 
 ```{r jags_v1b}
-parameters.list <- c("r", "f", "mu", 
-                     "mu1",  
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2", 
-                     "Deviance", "loglik")
+model.name <- "v1b"
 
-if (!file.exists("RData/jags_out_v1b.rds")){
-  # v1 uses Poisson as the likelihood
-  jm.1b <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v1b.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  
-  saveRDS(jm.1b, file = "RData/jags_out_v1b.rds")
-  
-} else {
-  
-  jm.1b <- readRDS(file = "RData/jags_out_v1b.rds")
-}
-
-
-jm.1b.MCMC <- MCMC.diag(jm = jm.1b, MCMC.params = MCMC.params)
+jm.1b <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
@@ -396,69 +181,22 @@ jm.1b.MCMC <- MCMC.diag(jm = jm.1b, MCMC.params = MCMC.params)
 #Slicer stuck at value with infinite density
 # The following line was recommended here: https://courses.engr.illinois.edu/me598dm/sp2020/8.Bayesian.pdf, slide 67
 #rjags::set.factory("base::Slice","sampler",FALSE)
+# the above problem was fixed by changing the prior on SD(N) to be wider.
 
-parameters.list <- c("r", "f", "mu",
-                     "mu1", 
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2",
-                     "Deviance", "loglik",
-                     "p1", "p2")
 
-if (!file.exists("RData/jags_out_v2b.rds")){
+model.name <- "v2b"
 
-  # v2 uses Negative Binomial as the likelihood
-  jm.2b <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v2b.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T,
-               parallel=T)
-  saveRDS(jm.2b, file = "RData/jags_out_v2b.rds")
+jm.2b <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
-} else {
-
-  jm.2b <- readRDS(file = "RData/jags_out_v2b.rds")
-}
-
-jm.2b.MCMC <- MCMC.diag(jm = jm.2b, MCMC.params = MCMC.params)
 
 ```
 
 
 
 ```{r jags_v3b, cache=T}
-parameters.list <- c("r", "f", "mu", 
-                     "mu1",  
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2", 
-                     "Deviance", "loglik",
-                     "p1")
+model.name <- "v3b"
 
-if (!file.exists("RData/jags_out_v3b.rds")){
-  
-  # v3 uses Negative Binomial and Poisson as the likelihood
-  jm.3b <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v3b.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  saveRDS(jm.3b, file = "RData/jags_out_v3b.rds")
-  
-} else {
-  
-  jm.3b <- readRDS(file = "RData/jags_out_v3b.rds")
-}
-
-jm.3b.MCMC <- MCMC.diag(jm = jm.3b, MCMC.params = MCMC.params)
+jm.3b <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```
 
@@ -466,82 +204,109 @@ jm.3b.MCMC <- MCMC.diag(jm = jm.3b, MCMC.params = MCMC.params)
 
 
 ```{r jags_v4b, cache=T}
-parameters.list <- c("r", "f", "mu", 
-                     "mu1",  
-                     "b", "sigma_N", "mean_N",
-                     "mu_D1", "mu_D2", 
-                     "Deviance", "loglik",
-                     "p2")
+model.name <- "v4b"
 
-if (!file.exists("RData/jags_out_v4b.rds")){
-  
-  # v4 uses Negative Binomial and Poisson as the likelihood
-  jm.4b <- jags(data = jags.data,
-               #inits = inits,
-               parameters.to.save= parameters.list,
-               model.file = "models/model_DcStranding_v4b.txt",
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-  saveRDS(jm.4b, file = "RData/jags_out_v4b.rds")
-  
-} else {
-  
-  jm.4b <- readRDS(file = "RData/jags_out_v4b.rds")
-}
+jm.4b <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
-jm.4b.MCMC <- MCMC.diag(jm = jm.4b, MCMC.params = MCMC.params)
 
 ```
+
+
+```{r jags_v1c}
+
+D1_idx <- vector(mode = "numeric", length = length(D1))
+D1_idx[D1>5] <- 1
+
+jags.data$D1_idx <- D1_idx[2:length(N)]
+model.name <- "v1c"
+
+jm.1c <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+```{r jags_v2c, cache=T}
+
+model.name <- "v2c"
+
+jm.2c <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+
+```{r jags_v3c, cache=T}
+model.name <- "v3c"
+
+jm.3c <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
+
+
+
+```{r jags_v4c, cache=T}
+
+model.name <- "v4c"
+
+jm.4c <- run.model(parameters.list, jags.data, model.name, MCMC.params)
+
+```
+
 
 Extract the MCMC diagnostics and compare models
 
 ```{r}
-LOOIC <- list(M1 = jm.1.MCMC$loo.out$estimates["looic", "Estimate"],
-              M1a = jm.1a.MCMC$loo.out$estimates["looic", "Estimate"],
-              M1b = jm.1b.MCMC$loo.out$estimates["looic", "Estimate"],
-              M2 = jm.2.MCMC$loo.out$estimates["looic", "Estimate"],
-              M2a = jm.2a.MCMC$loo.out$estimates["looic", "Estimate"],
-              M2b = jm.2b.MCMC$loo.out$estimates["looic", "Estimate"],
-              M3 = jm.3.MCMC$loo.out$estimates["looic", "Estimate"],
-              M3a = jm.3a.MCMC$loo.out$estimates["looic", "Estimate"],
-              M3b = jm.3b.MCMC$loo.out$estimates["looic", "Estimate"],
-              M4 = jm.4.MCMC$loo.out$estimates["looic", "Estimate"],
-              M4a = jm.4a.MCMC$loo.out$estimates["looic", "Estimate"],
-              M4b = jm.4b.MCMC$loo.out$estimates["looic", "Estimate"])
+LOOIC <- list(M1 = jm.1$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M1a = jm.1a$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M1b = jm.1b$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M1c = jm.1c$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2 = jm.2$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2a = jm.2a$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2b = jm.2b$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M2c = jm.2c$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M3 = jm.3$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M3a = jm.3a$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M3b = jm.3b$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M3c = jm.3c$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M4 = jm.4$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M4a = jm.4a$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M4b = jm.4b$jm.MCMC$loo.out$estimates["looic", "Estimate"],
+              M4c = jm.4c$jm.MCMC$loo.out$estimates["looic", "Estimate"])
 
 
 sort(unlist(LOOIC))
 ```
 
-According to LOOIC, M2 is the best.
+According to LOOIC, M4c is the best.
 
 ```{r}
-DIC <- list(M1 = jm.1.MCMC$DIC,
-              M1a = jm.1a.MCMC$DIC,
-              M1b = jm.1b.MCMC$DIC,
-              M2 = jm.2.MCMC$DIC,
-              M2a = jm.2a.MCMC$DIC,
-              M2b = jm.2b.MCMC$DIC,
-              M3 = jm.3.MCMC$DIC,
-              M3a = jm.3a.MCMC$DIC,
-              M3b = jm.3b.MCMC$DIC,
-              M4 = jm.4.MCMC$DIC,
-              M4a = jm.4a.MCMC$DIC,
-              M4b = jm.4b.MCMC$DIC)
+DIC <- list(M1 = jm.1$jm.MCMC$DIC,
+              M1a = jm.1a$jm.MCMC$DIC,
+              M1b = jm.1b$jm.MCMC$DIC,
+              M1c = jm.1c$jm.MCMC$DIC,
+              M2 = jm.2$jm.MCMC$DIC,
+              M2a = jm.2a$jm.MCMC$DIC,
+              M2b = jm.2b$jm.MCMC$DIC,
+              M2c = jm.2c$jm.MCMC$DIC,
+              M3 = jm.3$jm.MCMC$DIC,
+              M3a = jm.3a$jm.MCMC$DIC,
+              M3b = jm.3b$jm.MCMC$DIC,
+              M3c = jm.3c$jm.MCMC$DIC,
+              M4 = jm.4$jm.MCMC$DIC,
+              M4a = jm.4a$jm.MCMC$DIC,
+            M4b = jm.4b$jm.MCMC$DIC,
+            M4c = jm.4c$jm.MCMC$DIC)
 
 
 sort(unlist(DIC))
 ```
 
-According to DIC, M2a is best.
+According to DIC, M4c is best.
 
 ```{r}
-best.model <- jm.2
-best.model.MCMC <- jm.2.MCMC
+best.model <- jm.4c
+best.model.MCMC <- jm.4c$jm.MCMC
 
 best.model.MCMC$Rhat
 ```
@@ -555,7 +320,7 @@ plot(best.model.MCMC$loo.out)
 
 ```
 
-It looks okay. 
+This looks pretty good. 
 
 ```{r}
 best.model.MCMC$loo.out
@@ -563,7 +328,7 @@ best.model.MCMC$loo.out
 
 
 ```{r}
-mcmc_dens(best.model$samples, c("r", "f", "mu",  "b"))
+mcmc_dens(best.model$jm.out$samples, c("r", "f", "mu",  "b", "mu1",  "p2"))
 ```
 
 
@@ -574,52 +339,52 @@ mcmc_dens(best.model$samples, c("r", "f", "mu",  "b"))
 
 
 ```{r}
-mcmc_dens(best.model$samples, 
-          c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
-            "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
-            "mu1[9]"))
+mcmc_dens(best.model$jm.out$samples,
+          c("mu_D1[1]", "mu_D1[2]", "mu_D1[3]", "mu_D1[4]",
+            "mu_D1[5]", "mu_D1[6]", "mu_D1[7]", "mu_D1[8]",
+            "mu_D1[9]"))
 ```
 
-These posteriors don't look so good...
+These posteriors look okay
 
 
 ```{r}
-mcmc_trace(best.model$samples, 
-          c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
-            "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
-            "mu1[9]"))
+mcmc_trace(best.model$jm.out$samples,
+          c("mu_D1[1]", "mu_D1[2]", "mu_D1[3]", "mu_D1[4]",
+            "mu_D1[5]", "mu_D1[6]", "mu_D1[7]", "mu_D1[8]",
+            "mu_D1[9]"))
 ```
 
 ```{r}
-mcmc_dens(best.model$samples, 
-          c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
-            "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
-            "mu1[18]", "mu1[19]"))
+mcmc_dens(best.model$jm.out$samples,
+          c("mu_D1[10]", "mu_D1[11]", "mu_D1[12]", "mu_D1[13]",
+            "mu_D1[14]", "mu_D1[15]", "mu_D1[16]", "mu_D1[17]",
+            "mu_D1[18]", "mu_D1[19]"))
 ```
 
 
-```{r}
-mcmc_trace(best.model$samples, 
-           c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
-             "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
-             "mu1[18]", "mu1[19]"))
-```
+<!-- ```{r} -->
+<!-- mcmc_trace(best.model$samples,  -->
+<!--            c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]", -->
+<!--              "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]", -->
+<!--              "mu1[18]", "mu1[19]")) -->
+<!-- ``` -->
 
 
 
 ```{r}
 
-mean.mu_D1 <- best.model$mean$mu_D1
-low.mu_D1 <- best.model$q2.5$mu_D1
-high.mu_D1 <- best.model$q97.5$mu_D1
+mean.mu_D1 <- best.model$jm.out$mean$mu_D1
+low.mu_D1 <- best.model$jm.out$q2.5$mu_D1
+high.mu_D1 <- best.model$jm.out$q97.5$mu_D1
 
-mean.mu_D2 <- best.model$mean$mu_D2
-low.mu_D2 <- best.model$q2.5$mu_D2
-high.mu_D2 <- best.model$q97.5$mu_D2
+mean.mu_D2 <- best.model$jm.out$mean$mu_D2
+low.mu_D2 <- best.model$jm.out$q2.5$mu_D2
+high.mu_D2 <- best.model$jm.out$q97.5$mu_D2
 
-mean.mu1 <- best.model$mean$mu1
-low.mu1 <- best.model$q2.5$mu1
-high.mu1 <- best.model$q97.5$mu1
+mean.mu1 <- best.model$jm.out$mean$mu1
+low.mu1 <- best.model$jm.out$q2.5$mu1
+high.mu1 <- best.model$jm.out$q97.5$mu1
 
 
 ggplot(data.frame(D1 = jags.data$D1, 
@@ -638,18 +403,18 @@ Red dots are the observed number of strandings along SS.
 
 Observed # strandings vs. estimated mortality along SS. Upper limits are pushed against 0.2. 
 
-```{r}
-ggplot(data.frame(D1 = jags.data$D1, 
-                  mu1 = mean.mu1, 
-                  mu_D1 = mean.mu_D1, 
-                  low_mu1 = low.mu1,
-                  high_mu1 = high.mu1,
-                  time = seq(2001, 2019))) +
-  geom_point(aes(x = D1, y = mu1), color = "red") +
-  geom_errorbar(aes(x = D1, ymin = low_mu1, ymax = high_mu1))
+<!-- ```{r} -->
+<!-- ggplot(data.frame(D1 = jags.data$D1,  -->
+<!--                   mu1 = mean.mu1,  -->
+<!--                   mu_D1 = mean.mu_D1,  -->
+<!--                   low_mu1 = low.mu1, -->
+<!--                   high_mu1 = high.mu1, -->
+<!--                   time = seq(2001, 2019))) + -->
+<!--   geom_point(aes(x = D1, y = mu1), color = "red") + -->
+<!--   geom_errorbar(aes(x = D1, ymin = low_mu1, ymax = high_mu1)) -->
 
 
-```
+<!-- ``` -->
 
 
 ```{r}
@@ -666,9 +431,9 @@ ggplot(data.frame(D2 = jags.data$D2,
 ```
 
 ```{r}
-mean.mean_N <- best.model$mean$mean_N
-low.mean_N <- best.model$q2.5$mean_N
-high.mean_N <- best.model$q97.5$mean_N
+mean.mean_N <- best.model$jm.out$mean$mean_N
+low.mean_N <- best.model$jm.out$q2.5$mean_N
+high.mean_N <- best.model$jm.out$q97.5$mean_N
 
 ggplot(data.frame(N = jags.data$N, 
                   mean_N = mean.mean_N, 
