@@ -400,7 +400,7 @@ DIC <- list(M1 = jm.1$jm.MCMC$DIC,
 sort(unlist(DIC))
 ```
 
-According to DIC, M4c is best. 
+According to DIC, M4e is best but not much difference from M4c. I looked the difference and f1 and f2 were quite similar. So, I'll go with M4c.
 
 ```{r}
 best.model <- jm.4c
