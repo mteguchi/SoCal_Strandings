@@ -105,7 +105,7 @@ The total abundance ($N_t$) is:
 
 $N_t \sim logN(ln(\mu_{N_t}), \sigma_N)$, where
 
-$\mu_{N_t} = \mu_{N_{t-1}} e^{(r - m - m_1)}$, where $m_1 = 0$ if no evidence of additional deaths.
+$\mu_{N_t} = \mu_{N_{t-1}} e^{(r - m_1)}$, where $m_1 = 0$ if no evidence of additional deaths.
 
 
 ### Stranding along SS: {-}
@@ -131,6 +131,7 @@ model{
 	mu_D1[1] <- ifelse(D1_idx[1] == 1, 
 						P_SS * mean_N[1] * (mu + mu1) * f,
 						P_SS * mean_N[1] * mu * f)
+
 	loglik[1, 1] <- logdensity.pois(D1[1], mu_D1[1])
 
 	D2[1] ~ dnegbin(p2, (mu_D2[1] * p2)/(1-p2))
@@ -140,14 +141,16 @@ model{
 	for (t in 2:T){
 
 		mean_N[t] <- ifelse(D1_idx[t] == 1,
-							mean_N[t-1] * exp(r - mu - mu1),
-							mean_N[t-1] * exp(r - mu))
+							mean_N[t-1] * exp(r - mu1),
+							mean_N[t-1] * exp(r))
+
 		N[t] ~ dlnorm(log(mean_N[t]), 1/(sigma_N^2))
 
 		D1[t] ~ dpois(mu_D1[t])
 		mu_D1[t] <- ifelse(D1_idx[t] == 1, 
 						P_SS * mean_N[t] * (mu + mu1) * f,
 						P_SS * mean_N[t] * mu * f)
+
 		loglik[t, 1] <- logdensity.pois(D1[t], mu_D1[t])
 
 		D2[t] ~ dnegbin(p2, (mu_D2[t] * p2)/(1-p2))
@@ -160,13 +163,15 @@ model{
 	mu ~ dnorm(0, 1)T(0.001,0.999) #dunif(0, 0.1)
 	mu1 ~ dnorm(0, 1)T(0.001,0.999) #dunif(0.001, 0.10)  #dbeta(1, 5)
 		
+
 	b <- r + mu
 
 	f ~ dbeta(1, 5)   # less bigger values
 	r ~ dnorm(0, 1/(0.1^2))
 	p2 ~ dbeta(1,1)
-	sigma_N ~ dgamma(0.5, 0.01)
 
+	sigma_N ~ dgamma(0.5, 0.01)
+	#sigma_N <- 1/sqrt(tau_N)
 }
 
 ## Results {-}

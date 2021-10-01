@@ -76,8 +76,10 @@ Bring in shapefiles:
 # get the coast lines
 # Does this work with Windows?
 home.dir <- Sys.getenv("HOME")
-if (grep("Documents", home.dir) == 1){
+if (length(grep("Documents", home.dir)) != 0){
   home.dir <- strsplit(home.dir, "Documents")[[1]]
+} else {
+  home.dir <- home.dir
 }
 
 coast.line <- st_read(paste0(home.dir, 
