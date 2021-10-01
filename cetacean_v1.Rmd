@@ -468,6 +468,44 @@ if (save.fig)
 ```
 
 
+```{r}
+knitr::kable(data.frame(cbind(select(stranding.perKm.all, Year),
+                   select(stranding.perKm.all,n_per_km),
+                   select(stranding.perKm.noSS,n_per_km),
+                   select(stranding.perKm.SS, n_per_km))),
+             digits = 2,
+             col.names = c("Year", "All", "noSS", "SS"),
+             row.names = F,
+             table.attr = "style='width:30%;'")
+```
+
+
+Compute the average stranding rate since 2007 and compare
+
+```{r}
+stranding.perKm.SS %>% filter(Year > 2006) %>%
+  summarize(avg.rate = mean(n_per_km),
+            n = sum(n)) -> cetacean.stranding.rate.SS
+
+stranding.perKm.noSS %>% filter(Year > 2006) %>%
+  summarize(avg.rate = mean(n_per_km),
+            n = sum(n)) -> cetacean.stranding.rate.noSS
+
+cetacean.stranding.rate.SS/cetacean.stranding.rate.noSS
+```
+
+Comparison of annual stranding rate between SS and noSS
+
+```{r}
+stranding.perKm.SS %>% 
+  left_join(stranding.perKm.noSS, by = "Year") %>%
+  mutate(ratio = n_per_km.x/n_per_km.y) -> stranding.ratio
+
+
+```
+
+
+
 Split the dataset in two: one for 2000-2009 and another for 2010-2019.
 
 ```{r}

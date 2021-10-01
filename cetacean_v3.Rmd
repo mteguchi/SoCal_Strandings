@@ -85,6 +85,13 @@ Bring in shapefiles:
 # get the coast lines
 # Does this work with Windows?
 home.dir <- Sys.getenv("HOME")
+
+if (length(grep("Documents", home.dir)) != 0){
+  home.dir <- strsplit(home.dir, "Documents")[[1]]
+} else {
+  home.dir <- home.dir
+}
+
 coast.line <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/COASTLINE"),
                       layer = "coast") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
@@ -269,5 +276,16 @@ ggplot(data = stranding.perSp.perKm.perYr.SS) +
 if (save.fig) 
   ggsave(filename = "figures/stranding_perSp_SS.png",
        device = "png", dpi = 600)
+```
+
+Compare stranding rates for capensis
+
+```{r}
+stranding.perSp.perKm.perYr.SS %>%
+  filter(Sp.f == "Delphinus_capensis") %>%
+  left_join(stranding.perSp.perKm.perYr.noSS, 
+            by = c("Sp.f", "Year")) %>%
+  arrange(Year) %>%
+  mutate(ratio = n_per_km.x/n_per_km.y)-> tmp
 ```
 
