@@ -35,7 +35,7 @@ model{
 
 	for (t in 2:T){
 
-		mean_N[t] <- mean_N[t-1] * exp(r - mu - mu1)
+		mean_N[t] <- mean_N[t-1] * exp(r - mu1)
 		N[t] ~ dlnorm(log(mean_N[t]), 1/(sigma_N^2))
 
 		D1[t] ~ dpois(mu_D1[t])

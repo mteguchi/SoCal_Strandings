@@ -34,8 +34,8 @@ model{
 	for (t in 2:T){
 
 		mean_N[t] <- ifelse(D1_idx[t] == 1,
-							mean_N[t-1] * exp(r - mu - mu1),
-							mean_N[t-1] * exp(r - mu))
+							mean_N[t-1] * exp(r - mu1),
+							mean_N[t-1] * exp(r))
 
 		N[t] ~ dlnorm(log(mean_N[t]), 1/(sigma_N^2))
 
@@ -56,7 +56,6 @@ model{
 	mu ~ dnorm(0, 1)T(0.001,0.999) #dunif(0.001, 0.3)
 	mu1 ~ dnorm(0, 1)T(0.001,0.999) #dunif(0.001, 0.10)  #dbeta(1, 5)
 		
-
 	b <- r + mu
 
 	f1 ~ dbeta(1, 5)   # less bigger values

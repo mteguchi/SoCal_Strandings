@@ -23,7 +23,7 @@ MCMC.params <- list(n.samples = 150000,
 
 n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
 
-model.name <- "v4e"
+model.name <- "v4c"
 
 # load data on capensis strandings
 capensis.data <- read.csv(file = "data/capensis_strandings.csv")
@@ -64,8 +64,6 @@ parameters.list <- c("r", "f1", "f2", "mu",
                      "p2")
 
 
-model.name <- "v4e"
-
 jm <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 
@@ -75,7 +73,7 @@ jm <- run.model(parameters.list, jags.data, model.name, MCMC.params)
 
 ```{r}
 best.model <- jm
-best.model.MCMC <- jm.MCMC
+best.model.MCMC <- jm$jm.MCMC
 
 best.model.MCMC$Rhat
 ```
@@ -97,7 +95,7 @@ best.model.MCMC$loo.out
 
 
 ```{r}
-mcmc_dens(best.model$samples, c("r", "f", "mu",  "b", "mu1"))
+mcmc_dens(best.model$jm.out$samples, c("r", "f", "mu",  "b", "mu1"))
 ```
 
 
@@ -118,47 +116,47 @@ These posteriors don't look so good...
 
 
 ```{r}
-mcmc_trace(best.model$samples, 
-          c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
-            "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
-            "mu1[9]"))
+# mcmc_trace(best.model$samples, 
+#           c("mu1[1]", "mu1[2]", "mu1[3]", "mu1[4]",
+#             "mu1[5]", "mu1[6]", "mu1[7]", "mu1[8]",
+#             "mu1[9]"))
 ```
 
 ```{r}
-mcmc_dens(best.model$samples, 
-          c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
-            "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
-            "mu1[18]", "mu1[19]"))
+# mcmc_dens(best.model$samples, 
+#           c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
+#             "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
+#             "mu1[18]", "mu1[19]"))
 ```
 
 Some posteriors (10, 11,, 12, 15, and 19) seemed to be pushed against the upper limit (0.2). 
 
 ```{r}
-mcmc_trace(best.model$samples, 
-           c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
-             "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
-             "mu1[18]", "mu1[19]"))
+# mcmc_trace(best.model$samples, 
+#            c("mu1[10]", "mu1[11]", "mu1[12]", "mu1[13]",
+#              "mu1[14]", "mu1[15]", "mu1[16]", "mu1[17]",
+#              "mu1[18]", "mu1[19]"))
 ```
 
 
 
 ```{r}
 
-mean.mu_D1 <- best.model$mean$mu_D1
-low.mu_D1 <- best.model$q2.5$mu_D1
-high.mu_D1 <- best.model$q97.5$mu_D1
+mean.mu_D1 <- best.model$jm.out$mean$mu_D1
+low.mu_D1 <- best.model$jm.out$q2.5$mu_D1
+high.mu_D1 <- best.model$jm.out$q97.5$mu_D1
 
-mean.mu_D2 <- best.model$mean$mu_D2
-low.mu_D2 <- best.model$q2.5$mu_D2
-high.mu_D2 <- best.model$q97.5$mu_D2
+mean.mu_D2 <- best.model$jm.out$mean$mu_D2
+low.mu_D2 <- best.model$jm.out$q2.5$mu_D2
+high.mu_D2 <- best.model$jm.out$q97.5$mu_D2
 
-mean.mu1 <- best.model$mean$mu1
-low.mu1 <- best.model$q2.5$mu1
-high.mu1 <- best.model$q97.5$mu1
+mean.mu1 <- best.model$jm.out$mean$mu1
+low.mu1 <- best.model$jm.out$q2.5$mu1
+high.mu1 <- best.model$jm.out$q97.5$mu1
 
-mean.mu2 <- best.model$mean$mu2
-low.mu2 <- best.model$q2.5$mu2
-high.mu2 <- best.model$q97.5$mu2
+mean.mu2 <- best.model$jm.out$mean$mu2
+low.mu2 <- best.model$jm.out$q2.5$mu2
+high.mu2 <- best.model$jm.out$q97.5$mu2
 
 ggplot(data.frame(D1 = jags.data$D1, 
                   mu_D1 = mean.mu_D1,
@@ -218,16 +216,16 @@ ggplot(data.frame(D2 = jags.data$D2,
 ```
 
 ```{r}
-mean.mean_N <- best.model$mean$mean_N
-low.mean_N <- best.model$q2.5$mean_N
-high.mean_N <- best.model$q97.5$mean_N
+mean.mean_N <- best.model$jm.out$mean$mean_N
+low.mean_N <- best.model$jm.out$q2.5$mean_N
+high.mean_N <- best.model$jm.out$q97.5$mean_N
 
 ggplot(data.frame(N = jags.data$N, 
                   mu_N = mean.mean_N, 
                   low.mu_N = low.mean_N,
                   high.mu_N = high.mean_N,
                   time = seq(2001, 2019))) +
-  geom_point(aes(x = time, y = mean_N)) +
+  geom_point(aes(x = time, y = mean.mean_N)) +
   geom_errorbar(aes(x = time, ymin = low.mean_N, ymax = high.mean_N)) + 
   geom_point(aes(x = time, y = N), color = "red", size = 2)
 

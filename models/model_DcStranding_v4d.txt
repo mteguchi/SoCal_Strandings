@@ -34,8 +34,8 @@ model{
 	for (t in 2:T){
 
 		mean_N[t] <- ifelse(D1_idx[t] == 1,
-							mean_N[t-1] * exp(r - mu[t] - mu1),
-							mean_N[t-1] * exp(r - mu[t]))
+							mean_N[t-1] * exp(r[t] - mu1),
+							mean_N[t-1] * exp(r[t]))
 
 		N[t] ~ dlnorm(log(mean_N[t]), 1/(sigma_N^2))
 
@@ -50,20 +50,18 @@ model{
 		mu_D2[t] <- (1 - P_SS) * mean_N[t] * mu[t] * f
 		loglik[t, 2] <- logdensity.negbin(D2[t], p2, (mu_D2[t] * p2)/(1-p2))
  
+		b[t] <- r[t] + mu[t]
 	}
 	
 	# priors:
 	for (k in 1:T){
 		mu[k] ~ dnorm(0, 1)T(0.001,0.999) #dunif(0, 0.1)
+		r[k] ~ dnorm(0, 1/(0.1^2))
 	}
 	
 	mu1 ~ dnorm(0, 1)T(0.001,0.999) #dunif(0.001, 0.10)  #dbeta(1, 5)
 		
-
-	b <- r + mu
-
 	f ~ dbeta(1, 5)   # less bigger values
-	r ~ dnorm(0, 1/(0.1^2))
 	p2 ~ dbeta(1,1)
 
 	sigma_N ~ dgamma(0.5, 0.01)

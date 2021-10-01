@@ -34,8 +34,8 @@ model{
 	for (t in 2:T){
 
 		mean_N[t] <- ifelse(D1_idx[t] == 1,
-							mean_N[t-1] * exp(r - mu - mu1),
-							mean_N[t-1] * exp(r - mu))
+							mean_N[t-1] * exp(r - mu1),
+							mean_N[t-1] * exp(r))
 
 		N[t] ~ dlnorm(log(mean_N[t]), 1/(sigma_N^2))
 

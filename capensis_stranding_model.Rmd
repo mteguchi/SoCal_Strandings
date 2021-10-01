@@ -400,7 +400,7 @@ DIC <- list(M1 = jm.1$jm.MCMC$DIC,
 sort(unlist(DIC))
 ```
 
-According to DIC, M4e is best. Looked at posterior statisitcs and f1 and f2 are identical... so, I'll go with M4c
+According to DIC, M4c is best. 
 
 ```{r}
 best.model <- jm.4c
@@ -426,15 +426,15 @@ best.model.MCMC$loo.out
 
 
 ```{r}
-mcmc_dens(best.model$jm.out$samples, c("r", "f1", "f2", "mu",  "b", "mu1",  "p2"))
+mcmc_dens(best.model$jm.out$samples, c("r", "f",  "mu",  "b", "mu1",  "p2"))
 ```
 ```{r}
-best.model$jm.out$summary["f1",]
+#best.model$jm.out$summary["f1",]
 
 ```
 
 ```{r}
-best.model$jm.out$summary["f2",]
+#best.model$jm.out$summary["f2",]
 
 ```
 
