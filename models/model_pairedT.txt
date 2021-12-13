@@ -1,0 +1,13 @@
+# A model to determine the difference in stranding rates
+# between SS and non-SS coastlines. 
+
+model{
+
+  for (t in 1:T){
+    y[t] ~ dnorm(mu, tau)
+  }
+  
+  mu ~ dnorm(0, 0.01)
+  sigma ~ dgamma(0.5, 2)
+  tau <- 1/pow(sigma, 2)
+}

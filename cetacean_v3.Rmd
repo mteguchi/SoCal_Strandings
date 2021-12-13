@@ -289,3 +289,56 @@ stranding.perSp.perKm.perYr.SS %>%
   mutate(ratio = n_per_km.x/n_per_km.y)-> tmp
 ```
 
+Comparison between SS and non-SS strandings for capensis 
+
+In order to compare the stranding rates (n/km coast line) between SS and non-SS coast lines, I created a simple Bayesian model. The model treats the difference in stranding rates between SS and non-SS coast lines to be a normal distribution. 
+
+$y_{t,SS} - y_{t,non-SS} = x_t \sim N(\mu, \sigma)$, where 
+
+t = year. If there was no difference between the coast lines, $\mu \approx 0$. Any departure from it provides evidence for higher ($\mu > 0$) or lower ($\mu < 0$) stranding rates at Silver Strand. 
+
+```{r}
+library(jagsUI)
+jags.data <- list(y = stranding.perKm.perYr.SS$n_per_km - stranding.perKm.perYr.noSS$n_per_km,
+                  T = nrow(stranding.perKm.perYr.all))
+
+MCMC.params <- list(n.chains = 4,
+                    n.burnin = 10000,
+                    n.thin = 5,
+                    n.samples = 20000)
+
+jm <- jags(data = jags.data,
+           parameters.to.save= c("mu", "sigma"),
+           model.file = paste0("models/model_pairedT.txt"),
+           n.chains = MCMC.params$n.chains,
+           n.burnin = MCMC.params$n.burnin,
+           n.thin = MCMC.params$n.thin,
+           n.iter = MCMC.params$n.samples,
+           DIC = T, 
+           parallel=T)
+
+summary(jm)
+```
+
+
+```{r}
+
+jm$summary
+
+```
+
+
+```{r}
+library(bayesplot)
+
+mcmc_trace(jm$samples, c("mu", "sigma"))
+```
+
+```{r}
+mcmc_dens(jm$samples, c("mu", "sigma"))
+
+ggsave(filename = "figures/paired_t_posteriors.png",
+       dpi = 600, device = "png")
+```
+
+
