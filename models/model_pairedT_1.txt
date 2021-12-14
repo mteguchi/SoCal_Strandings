@@ -1,0 +1,36 @@
+# A model to determine the difference in stranding rates
+# between SS and non-SS coastlines. 
+
+# y1 is the stranding rate for SS and 
+# y2 is for the non-SS areas. 
+
+# In this version, I make mu1 (mean SS stranding rate) to be 
+# a multiplicative function of mu2 (mean non-SS stranding rate). 
+# The multiplier indicates how much more stranding happens
+# along SS than non-SS beaches.
+
+# 2021-12-13
+
+model{
+
+  for (t in 1:T){
+    y2[t] ~ dnorm(mu2, tau2)
+
+    y1[t] ~ dnorm(mu1, tau1)
+    
+    loglik[1,t] <- logdensity.norm(y1[t], mu1, tau1)
+    loglik[2,t] <- logdensity.norm(y2[t], mu2, tau2)
+
+  }
+  mu1 <- mu2 * alpha
+  
+  mu2 ~ dnorm(0, 0.01)
+  alpha ~ dnorm(0, 0.01)
+
+  #mu_ratio <- mu1/mu2
+
+  sigma1 ~ dgamma(0.5, 2)
+  tau1 <- 1/pow(sigma1, 2)
+  sigma2 ~ dgamma(0.5, 2)
+  tau2 <- 1/pow(sigma2, 2)
+  }

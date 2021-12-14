@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "A comparison of cetacean strandings in San Diego county between Silver Strand and non Silver Strand beaches"
 output: html_notebook
 ---
 
@@ -15,6 +15,9 @@ library(ggplot2)
 library(ggridges)
 library(sf)
 library(ggridges)
+library(jagsUI)
+library(loo)
+library(bayesplot)
 #library(viridis)
 
 save.fig <- F
@@ -92,22 +95,26 @@ if (length(grep("Documents", home.dir)) != 0){
   home.dir <- home.dir
 }
 
-coast.line <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/COASTLINE"),
+coast.line <- st_read(paste0(home.dir, 
+                             "/Documents/Oceans and Maps/San Diego/COASTLINE"),
                       layer = "coast") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
 
 # this is for plotting:
-harbor_bay_1 <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/Harbor_Bay"), 
+harbor_bay_1 <- st_read(paste0(home.dir, 
+                               "/Documents/Oceans and Maps/San Diego/Harbor_Bay"), 
                         layer = "Harbor_Bay") %>% 
-   st_transform(crs = "+proj=longlat +datum=WGS84") 
+  st_transform(crs = "+proj=longlat +datum=WGS84") 
 
 # I edited SDB in QGIS on my laptop (linux) so that Silver Strand is not included.
 # this is for computing coast length
-harbor_bay <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/SDB_v2"),
-               layer = "SDB_v2") %>% 
+harbor_bay <- st_read(paste0(home.dir, 
+                             "/Documents/Oceans and Maps/San Diego/SDB_v2"),
+                      layer = "SDB_v2") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
 
-Pacific <-  st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/Pacific_Ocean"), 
+Pacific <-  st_read(paste0(home.dir, 
+                           "/Documents/Oceans and Maps/San Diego/Pacific_Ocean"), 
                     layer = "PACIFIC_OCEAN") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") 
 
@@ -118,12 +125,14 @@ county.lines %>% filter(NAME == "San Diego") %>%
   st_transform(crs = "+proj=longlat +datum=WGS84") -> SD.county.line
 
 # Silver Strand - created from the entire coast line above in QGIS
-SS <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/San Diego/SilverStrand"),
-               layer = "SilverStrand") %>% 
+SS <- st_read(paste0(home.dir, 
+                     "/Documents/Oceans and Maps/San Diego/SilverStrand"),
+              layer = "SilverStrand") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") %>%
   st_cast("LINESTRING")
 
-Navy <- st_read(paste0(home.dir, "/Documents/Oceans and Maps/Navy_installations_poly"), 
+Navy <- st_read(paste0(home.dir, 
+                       "/Documents/Oceans and Maps/Navy_installations_poly"), 
                 layer = "Navy_installations_poly") %>% 
   st_transform(crs = "+proj=longlat +datum=WGS84") %>%
   st_make_valid()  # some duplicated vertices removed. 
@@ -247,6 +256,12 @@ dat.1.SS %>%
                   n_per_km = 0, 
                   Coast = "SS")) -> stranding.perSp.perKm.perYr.SS
 
+# write_csv(stranding.perSp.perKm.perYr.noSS,
+#           file = "data/stranding_perKm_noSS.csv")
+# 
+# write_csv(stranding.perSp.perKm.perYr.SS,
+#           file = "data/stranding_perKm_SS.csv")
+
 ggplot(data = stranding.perSp.perKm.perYr.noSS) +
   # geom_density_ridges(aes(x = Year, y = Sp.f, height = n_per_km),
   #                     stat = "identity", alpha = 0.5) +
@@ -286,19 +301,18 @@ stranding.perSp.perKm.perYr.SS %>%
   left_join(stranding.perSp.perKm.perYr.noSS, 
             by = c("Sp.f", "Year")) %>%
   arrange(Year) %>%
-  mutate(ratio = n_per_km.x/n_per_km.y)-> tmp
+  mutate(ratio = n_per_km.x/n_per_km.y) -> tmp
 ```
 
 Comparison between SS and non-SS strandings for capensis 
 
 In order to compare the stranding rates (n/km coast line) between SS and non-SS coast lines, I created a simple Bayesian model. The model treats the difference in stranding rates between SS and non-SS coast lines to be a normal distribution. 
 
-$y_{t,SS} - y_{t,non-SS} = x_t \sim N(\mu, \sigma)$, where 
+$y_{t,SS} - y_{t,\bar{SS}} = x_t \sim N(\mu, \sigma)$, where 
 
-t = year. If there was no difference between the coast lines, $\mu \approx 0$. Any departure from it provides evidence for higher ($\mu > 0$) or lower ($\mu < 0$) stranding rates at Silver Strand. 
+$\bar{SS}$ indicates non-SS and t = year. If there was no difference between the coast lines, $\mu \approx 0$. Any departure from it provides evidence for higher ($\mu > 0$) or lower ($\mu < 0$) stranding rates at Silver Strand. 
 
 ```{r}
-library(jagsUI)
 jags.data <- list(y = stranding.perKm.perYr.SS$n_per_km - stranding.perKm.perYr.noSS$n_per_km,
                   T = nrow(stranding.perKm.perYr.all))
 
@@ -307,8 +321,8 @@ MCMC.params <- list(n.chains = 4,
                     n.thin = 5,
                     n.samples = 20000)
 
-jm <- jags(data = jags.data,
-           parameters.to.save= c("mu", "sigma"),
+jm.1 <- jags(data = jags.data,
+           parameters.to.save= c("mu", "sigma", "loglik"),
            model.file = paste0("models/model_pairedT.txt"),
            n.chains = MCMC.params$n.chains,
            n.burnin = MCMC.params$n.burnin,
@@ -317,28 +331,132 @@ jm <- jags(data = jags.data,
            DIC = T, 
            parallel=T)
 
-summary(jm)
+summary(jm.1)
+```
+
+Goodness-of-fit
+
+```{r}
+n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  
+Rhat <- unlist(lapply(jm.1$Rhat, FUN = max))
+  
+loglik <- jm.1$sims.list$loglik
+  
+Reff <- relative_eff(exp(loglik), 
+                       chain_id = rep(1:MCMC.params$n.chains, 
+                                      each = n.per.chain),
+                       cores = 3)
+loo.out <- loo(loglik, r_eff = Reff, cores = 3)
+
+plot(loo.out)
 ```
 
 
 ```{r}
+mcmc_trace(jm.1$samples, c("mu", "sigma"))
+```
 
-jm$summary
+Trace plots look good and Rhat stats look good as well. 
+
+```{r}
+mcmc_dens(jm.1$samples, c("mu", "sigma"))
+
+if (save.fig)
+  ggsave(filename = "figures/pairedT_posteriors.png",
+         dpi = 600, device = "png")
+```
+
+
+```{r}
+jm.1.summary.df <- data.frame(jm.1$summary) %>% 
+  rownames_to_column(var = "Parameter")
+jm.1.summary.df[-grep("loglik", jm.1.summary.df$Parameter),]
+
+```
+
+Posterior distributions indicated that $\mu > 0$ (median = `r signif(jm.1$q50$mu, 3)`, 95% CI = [`r signif(jm.1$q2.5$mu`, `r signif(jm.1$q97.5$mu`]), implying that SS stranding rates are higher than non-SS stranding rate. 
+
+To quantify the amount of increase in strandings along SS relative to the other beaches in SD county, the mean annual stranding rate at SS was treated as a multiplicative function of the mean stranding rate at non-SS areas ($\bar{SS}$) in another model.
+
+$\mu_{SS} = \alpha \times \mu_{\bar{SS}}$
+
+$y_{t, SS} \sim N(\mu_{SS}, \sigma_{SS})$
+
+$y_{t, \bar{SS}} \sim N(\mu_{\bar{SS}}, \sigma_{\bar{SS}})$
+
+
+```{r}
+jags.data <- list(y1 = stranding.perKm.perYr.SS$n_per_km,
+                  y2 = stranding.perKm.perYr.noSS$n_per_km,
+                  T = nrow(stranding.perKm.perYr.all))
+
+MCMC.params <- list(n.chains = 4,
+                    n.burnin = 10000,
+                    n.thin = 5,
+                    n.samples = 20000)
+
+jm.2 <- jags(data = jags.data,
+           parameters.to.save= c("mu1", "sigma1", 
+                                 "mu2", "sigma2",
+                                 "alpha", "loglik"),
+           model.file = paste0("models/model_pairedT_1.txt"),
+           n.chains = MCMC.params$n.chains,
+           n.burnin = MCMC.params$n.burnin,
+           n.thin = MCMC.params$n.thin,
+           n.iter = MCMC.params$n.samples,
+           DIC = T, 
+           parallel=T)
+
+summary(jm.2)
+
+```
+
+Goodness-of-fit
+
+```{r}
+n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  
+Rhat <- unlist(lapply(jm.2$Rhat, FUN = max))
+  
+loglik <- jm.2$sims.list$loglik
+
+Reff <- relative_eff(exp(loglik), 
+                     chain_id = rep(1:MCMC.params$n.chains, 
+                                    each = n.per.chain),
+                     cores = 3)
+loo.out <- loo(loglik, r_eff = Reff, cores = 3)
+
+plot(loo.out)
 
 ```
 
 
 ```{r}
-library(bayesplot)
+mcmc_trace(jm.2$samples, 
+           c("mu1", "sigma1", "mu2", "sigma2", "alpha"))
+```
 
-mcmc_trace(jm$samples, c("mu", "sigma"))
+These plots look good. 
+
+```{r}
+mcmc_dens(jm.2$samples, 
+          c("mu1", "sigma1", "mu2", "sigma2", "alpha"))
+
+if (save.fig)
+  ggsave(file = "figures/pairedT_1_posteriors.png", 
+       device = "png", dpi = 600)
+
 ```
 
 ```{r}
-mcmc_dens(jm$samples, c("mu", "sigma"))
-
-ggsave(filename = "figures/paired_t_posteriors.png",
-       dpi = 600, device = "png")
+jm.2.summary.df <- data.frame(jm.2$summary) %>% 
+  rownames_to_column(var = "Parameter")
+jm.2.summary.df[-grep("loglik", jm.2.summary.df$Parameter),]
 ```
 
+
+Rhat statistics are good. 
+
+The marginal posterior of $\alpha$ indicated that the multiplicative factor was > 0 (median = `r signif(jm.2$q50$alpha, 3)`), where its 95% CI ranged from `r signif(jm.2$q2.5$alpha, 3)` to `r signif(jm.2$q97.5$alpha, 3)`. 
 
