@@ -27,10 +27,8 @@ model{
   mu2 ~ dnorm(0, 0.01)
   alpha ~ dnorm(0, 0.01)
 
-  #mu_ratio <- mu1/mu2
-
   sigma1 ~ dgamma(0.5, 2)
   tau1 <- 1/pow(sigma1, 2)
   sigma2 ~ dgamma(0.5, 2)
   tau2 <- 1/pow(sigma2, 2)
-  }
+}
